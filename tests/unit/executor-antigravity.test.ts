@@ -379,27 +379,34 @@ test("AntigravityExecutor.refreshCredentials refreshes Google OAuth tokens", asy
   }
 });
 
-test("AntigravityExecutor.execute auto-retries short 429 responses and collects SSE for non-stream clients", async () => {
+test("AntigravityExecutor.execute tries each Antigravity URL once before succeeding", async () => {
   const executor = new AntigravityExecutor();
+  executor.config.baseUrls = ["https://ag-1.test", "https://ag-2.test", "https://ag-3.test"];
   const originalFetch = globalThis.fetch;
-  const originalSetTimeout = globalThis.setTimeout;
   const calls = [];
   seedAntigravityVersionCache("2026.04.17-test");
 
   globalThis.fetch = async (url) => {
     calls.push(String(url));
 
-    if (calls.length === 1) {
-      return new Response(JSON.stringify({ error: { message: "rate limited" } }), {
-        status: 429,
-        headers: { "Content-Type": "application/json" },
-      });
+    if (calls.length < 3) {
+      return new Response(
+        JSON.stringify({
+          error: {
+            message: calls.length === 1 ? "rate limited" : "upstream temporarily unavailable",
+          },
+        }),
+        {
+          status: calls.length === 1 ? 429 : 503,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
 
     return new Response(
       [
-        'data: {"response":{"candidates":[{"content":{"parts":[{"text":"Hello "}]},"finishReason":"STOP"}]}}\n\n',
-        'data: {"response":{"candidates":[{"content":{"parts":[{"text":"again"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":2,"candidatesTokenCount":3,"totalTokenCount":5}}}\n\n',
+        'data: {"response":{"candidates":[{"content":{"parts":[{"text":"Recovered "}]},"finishReason":"STOP"}]}}\n\n',
+        'data: {"response":{"candidates":[{"content":{"parts":[{"text":"on third URL"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":2,"candidatesTokenCount":3,"totalTokenCount":5}}}\n\n',
       ].join(""),
       {
         status: 200,
@@ -407,10 +414,6 @@ test("AntigravityExecutor.execute auto-retries short 429 responses and collects 
       }
     );
   };
-  globalThis.setTimeout = ((callback) => {
-    (callback as () => void)();
-    return 0;
-  }) as typeof setTimeout;
 
   try {
     const result = await executor.execute({
@@ -422,9 +425,12 @@ test("AntigravityExecutor.execute auto-retries short 429 responses and collects 
     });
     const payload = (await result.response.json()) as any;
 
-    assert.equal(calls.length, 2);
+    assert.deepEqual(
+      calls.map((callUrl) => new URL(callUrl).origin),
+      ["https://ag-1.test", "https://ag-2.test", "https://ag-3.test"]
+    );
     assert.equal(result.response.status, 200);
-    assert.equal(payload.choices[0].message.content, "Hello again");
+    assert.equal(payload.choices[0].message.content, "Recovered on third URL");
     assert.deepEqual(payload.usage, {
       prompt_tokens: 2,
       completion_tokens: 3,
@@ -432,7 +438,6 @@ test("AntigravityExecutor.execute auto-retries short 429 responses and collects 
     });
   } finally {
     globalThis.fetch = originalFetch;
-    globalThis.setTimeout = originalSetTimeout;
   }
 });
 

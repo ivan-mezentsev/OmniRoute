@@ -576,8 +576,6 @@ export class AntigravityExecutor extends BaseExecutor {
     const fallbackCount = this.getFallbackCount();
     let lastError = null;
     let lastStatus = 0;
-    const MAX_AUTO_RETRIES = 3;
-    const retryAttemptsByUrl = {}; // Track retry attempts per URL
 
     // Always stream upstream — buildUrl always returns the streaming endpoint.
     // For non-streaming clients, we collect the SSE below and return a synthetic
@@ -623,11 +621,6 @@ export class AntigravityExecutor extends BaseExecutor {
         log?.debug?.("AG_CREDITS", "Credits-first enabled (ANTIGRAVITY_CREDITS=always)");
       }
 
-      // Initialize retry counter for this URL
-      if (!retryAttemptsByUrl[urlIndex]) {
-        retryAttemptsByUrl[urlIndex] = 0;
-      }
-
       try {
         const serializedRequest = serializeAntigravityRequest(
           this.provider,
@@ -638,7 +631,7 @@ export class AntigravityExecutor extends BaseExecutor {
 
         log?.debug?.(
           "TELEMETRY",
-          `[Antigravity] Execute - URL: ${url}, Model: ${model}, Target: ${getRequestTargetModel(transformedBody)}, RetryAttempt: ${retryAttemptsByUrl[urlIndex]}`
+          `[Antigravity] Execute - URL: ${url}, Model: ${model}, Target: ${getRequestTargetModel(transformedBody)}`
         );
 
         const response = await fetch(url, {
@@ -778,41 +771,15 @@ export class AntigravityExecutor extends BaseExecutor {
             }
           }
 
-          if (retryMs && retryMs <= LONG_RETRY_THRESHOLD_MS) {
-            const effectiveRetryMs = Math.min(retryMs, MAX_RETRY_AFTER_MS);
-            log?.debug?.(
-              "RETRY",
-              `${response.status} with Retry-After: ${Math.ceil(effectiveRetryMs / 1000)}s, waiting...`
-            );
-            await new Promise((resolve) => setTimeout(resolve, effectiveRetryMs));
-            urlIndex--;
-            continue;
-          }
-
-          // Auto retry only for 429 when retryMs is 0 or undefined
-          if (
-            response.status === HTTP_STATUS.RATE_LIMITED &&
-            (!retryMs || retryMs === 0) &&
-            retryAttemptsByUrl[urlIndex] < MAX_AUTO_RETRIES
-          ) {
-            retryAttemptsByUrl[urlIndex]++;
-            // Exponential backoff: 2s, 4s, 8s...
-            const backoffMs = Math.min(
-              1000 * 2 ** retryAttemptsByUrl[urlIndex],
-              MAX_RETRY_AFTER_MS
-            );
-            log?.debug?.(
-              "RETRY",
-              `429 auto retry ${retryAttemptsByUrl[urlIndex]}/${MAX_AUTO_RETRIES} after ${backoffMs / 1000}s`
-            );
-            await new Promise((resolve) => setTimeout(resolve, backoffMs));
-            urlIndex--;
-            continue;
-          }
+          const retryAfterText = retryMs
+            ? retryMs <= LONG_RETRY_THRESHOLD_MS
+              ? `${Math.ceil(Math.min(retryMs, MAX_RETRY_AFTER_MS) / 1000)}s`
+              : `too long (${Math.ceil(retryMs / 1000)}s)`
+            : "missing";
 
           log?.debug?.(
             "RETRY",
-            `${response.status}, Retry-After ${retryMs ? `too long (${Math.ceil(retryMs / 1000)}s)` : "missing"}, trying fallback`
+            `${response.status}, Retry-After ${retryAfterText}, trying fallback`
           );
           lastStatus = response.status;
 
