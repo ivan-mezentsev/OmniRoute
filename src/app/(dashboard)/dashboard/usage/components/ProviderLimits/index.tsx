@@ -111,16 +111,12 @@ function getWorstStatus(quotas: any[] | undefined): StatusKey {
   return worst;
 }
 
-function getSoonestResetMs(quotas: any[] | undefined): number {
-  if (!quotas || quotas.length === 0) return Number.POSITIVE_INFINITY;
-  const now = Date.now();
-  let soonest = Number.POSITIVE_INFINITY;
-  for (const q of quotas) {
-    if (!q?.resetAt) continue;
-    const ts = new Date(q.resetAt).getTime();
-    if (Number.isFinite(ts) && ts > now && ts < soonest) soonest = ts;
-  }
-  return soonest;
+// Stable, human-readable key for ordering accounts WITHIN a provider group.
+// Intentionally independent of any quota/status data so the layout never
+// reshuffles when quotas are refreshed.
+function getAccountSortKey(conn: any): string {
+  const candidate = conn?.name || conn?.displayName || conn?.email || conn?.id || "";
+  return String(candidate).toLowerCase();
 }
 
 const getQuotaBarWidthClass = (pct: number) => {
@@ -620,23 +616,24 @@ export default function ProviderLimits({
       return true;
     });
 
-    // Inside each group we still want "critical first, then alert, then ok,
-    // then empty; tiebreak by soonest reset". Provider order between groups
-    // is enforced separately via PROVIDER_ORDER.
-    const statusRank: Record<StatusKey, number> = {
-      critical: 0,
-      alert: 1,
-      ok: 2,
-      empty: 3,
-      all: 4,
-    };
+    // Deterministic ordering only — never reshuffle on quota refresh.
+    // 1) Groups follow the fixed PROVIDER_ORDER table (unknown providers sort
+    //    last, alphabetically among themselves). QuotaCardGrid groups by the
+    //    first appearance of each provider, so a contiguous provider-ordered
+    //    list yields a stable group order.
+    // 2) Accounts inside a group sort by a stable key (account name), with the
+    //    connection id as a final tiebreak. Status/reset are deliberately NOT
+    //    used so the layout stays put when quotas change.
     return [...filtered].sort((a, b) => {
-      const sa = statusRank[statusByConnection[a.id] || "empty"];
-      const sb = statusRank[statusByConnection[b.id] || "empty"];
-      if (sa !== sb) return sa - sb;
-      const ra = getSoonestResetMs(quotaData[a.id]?.quotas);
-      const rb = getSoonestResetMs(quotaData[b.id]?.quotas);
-      return ra - rb;
+      const pa = PROVIDER_ORDER[a.provider] || 99;
+      const pb = PROVIDER_ORDER[b.provider] || 99;
+      if (pa !== pb) return pa - pb;
+      if (a.provider !== b.provider) return a.provider.localeCompare(b.provider);
+      const ka = getAccountSortKey(a);
+      const kb = getAccountSortKey(b);
+      const cmp = ka.localeCompare(kb);
+      if (cmp !== 0) return cmp;
+      return String(a.id).localeCompare(String(b.id));
     });
   }, [
     sortedConnections,
@@ -647,7 +644,6 @@ export default function ProviderLimits({
     statusFilter,
     statusByConnection,
     envFilter,
-    quotaData,
   ]);
 
   const handleSetPurchaseFilter = useCallback((value: PurchaseTypeKey) => {
