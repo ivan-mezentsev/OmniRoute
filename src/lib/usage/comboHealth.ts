@@ -43,7 +43,6 @@ type ResolvedComboTargetView = {
   modelStr: string;
   provider: string;
   connectionId: string | null;
-  label: string | null;
 };
 
 type RuntimeTargetMetricView = {
@@ -475,7 +474,6 @@ function buildTargetHealth(
       model: target.modelStr,
       provider: target.provider,
       connectionId: target.connectionId,
-      label: target.label,
       requests: toSafeNumber(historicalMetric?.requests ?? runtimeMetric?.requests),
       successRate: toSafeNumber(historicalMetric?.successRate ?? runtimeMetric?.successRate),
       avgLatencyMs: toSafeNumber(historicalMetric?.avgLatencyMs ?? runtimeMetric?.avgLatencyMs),

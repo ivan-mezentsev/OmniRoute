@@ -263,7 +263,6 @@ export type ResolvedComboTarget = {
   connectionId: string | null;
   allowedConnectionIds?: string[] | null;
   weight: number;
-  label: string | null;
   failoverBeforeRetry?: unknown;
   trafficType?: "production" | "shadow";
 };
@@ -284,7 +283,6 @@ type ComboRuntimeStep =
       executionKey: string;
       comboName: string;
       weight: number;
-      label: string | null;
     };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -470,7 +468,6 @@ function toRecordedTarget(target: ResolvedComboTarget) {
     provider: target.provider,
     providerId: target.providerId,
     connectionId: target.connectionId,
-    label: target.label,
   };
 }
 
@@ -643,7 +640,6 @@ function normalizeRuntimeStep(
   if (!step) return null;
 
   const executionKey = buildExecutionKey(path, step.id);
-  const label = typeof step.label === "string" ? step.label : null;
   const weight = step.weight || 0;
 
   if (step.kind === "combo-ref") {
@@ -653,7 +649,6 @@ function normalizeRuntimeStep(
       executionKey,
       comboName: step.comboName,
       weight,
-      label,
     };
   }
 
@@ -669,7 +664,6 @@ function normalizeRuntimeStep(
     providerId: step.providerId || null,
     connectionId: step.connectionId || null,
     weight,
-    label,
   } satisfies ResolvedComboTarget;
 }
 

@@ -24,7 +24,6 @@ type ResolvedComboTargetView = {
   modelStr: string;
   provider: string;
   connectionId: string | null;
-  label: string | null;
 };
 
 type CostedUsageRow = ComboForecastUsageRow & {
@@ -307,7 +306,6 @@ async function buildComboForecast(
       provider: target.provider,
       model: target.modelStr,
       connectionId: target.connectionId,
-      label: target.label,
       trafficShare: totalRequests > 0 ? roundNumber(targetRequests / totalRequests, 4) : 0,
       history: {
         requests: targetRequests,

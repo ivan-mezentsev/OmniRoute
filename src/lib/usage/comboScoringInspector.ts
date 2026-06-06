@@ -325,7 +325,6 @@ async function buildInspectorCombo(
         provider: target.provider,
         model: target.model,
         connectionId: target.connectionId,
-        label: target.label,
         rank: index + 1,
         score: roundNumber(item.score),
         factors: factorBreakdown(item.factors, weights, item.entry.context),

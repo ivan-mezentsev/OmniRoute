@@ -86,7 +86,6 @@ type DecisionReplayCandidate = {
   provider: string;
   model: string;
   connectionId: string | null;
-  label: string | null;
   rank: number;
   score: number;
   isRuntimeSelected: boolean;
@@ -509,7 +508,6 @@ function buildReplayCandidates(
     provider: target.provider,
     model: target.model,
     connectionId: target.connectionId,
-    label: target.label,
     rank: target.rank,
     score: target.score,
     isRuntimeSelected: runtimeTarget?.executionKey === target.executionKey,

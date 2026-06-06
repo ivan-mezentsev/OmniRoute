@@ -20,7 +20,6 @@ interface ComboTargetMetrics extends ModelMetrics {
   provider: string | null;
   providerId: string | null;
   connectionId: string | null;
-  label: string | null;
 }
 
 interface ComboMetricsEntry {
@@ -79,7 +78,6 @@ export interface ComboRequestTargetMeta {
   provider?: string | null;
   providerId?: string | null;
   connectionId?: string | null;
-  label?: string | null;
 }
 
 function toNonEmptyString(value: unknown): string | null {
@@ -167,7 +165,6 @@ function buildTargetMetric(
     providerId: toNonEmptyString(target.providerId),
     connectionId:
       target.connectionId === null ? null : (toNonEmptyString(target.connectionId) ?? null),
-    label: target.label === null ? null : (toNonEmptyString(target.label) ?? null),
     ...createModelMetrics(),
   };
 }
@@ -259,8 +256,6 @@ export function recordComboRequest(
     target?.connectionId === null
       ? null
       : (targetMetric.connectionId ?? existingTargetMetric.connectionId);
-  existingTargetMetric.label =
-    target?.label === null ? null : (targetMetric.label ?? existingTargetMetric.label);
 
   applyMetricOutcome(existingTargetMetric, success, latencyMs, usedAt);
 }
@@ -320,8 +315,6 @@ export function recordComboShadowRequest(
     target?.connectionId === null
       ? null
       : (targetMetric.connectionId ?? existingTargetMetric.connectionId);
-  existingTargetMetric.label =
-    target?.label === null ? null : (targetMetric.label ?? existingTargetMetric.label);
 
   applyMetricOutcome(existingTargetMetric, success, latencyMs, usedAt);
 }

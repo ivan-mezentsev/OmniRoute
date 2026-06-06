@@ -20,14 +20,14 @@ async function getInternalApiKey(): Promise<string | null> {
   }
 }
 
-function buildComboTestResult(target, partial = {}) {
+function buildComboTestResult(target, partial: any = {}) {
   return {
     model: target.modelStr,
     provider: target.provider,
     stepId: target.stepId,
     executionKey: target.executionKey,
     connectionId: target.connectionId,
-    label: target.label,
+    status: partial.status || "error",
     ...partial,
   };
 }
@@ -189,7 +189,6 @@ export async function POST(request) {
             stepId: resolvedResult.stepId,
             executionKey: resolvedResult.executionKey,
             connectionId: resolvedResult.connectionId,
-            label: resolvedResult.label,
           }
         : null,
       results,

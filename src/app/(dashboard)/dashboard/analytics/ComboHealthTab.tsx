@@ -224,7 +224,7 @@ function ComboForecastPanel({ forecast }: { forecast: ComboForecastMetrics }) {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium text-text-main">
-                    {target.label || target.model}
+                    {target.model}
                   </div>
                   <div className="mt-1 text-xs text-text-muted">
                     {target.provider} · traffic {formatShare(target.trafficShare)}
@@ -428,7 +428,7 @@ function ComboScoringInspectorPanel({ inspector }: { inspector: ComboScoringInsp
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold text-text-main">
-                      #{target.rank} {target.label || target.model}
+                      #{target.rank} {target.model}
                     </div>
                     <div className="mt-1 text-xs text-text-muted">
                       {target.provider} · score {target.score.toFixed(3)}
@@ -681,7 +681,7 @@ function ComboHealthCard({
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium text-text-main">
-                      {target.label || target.model}
+                      {target.model}
                     </div>
                     <div className="mt-1 text-xs text-text-muted">
                       {target.provider}

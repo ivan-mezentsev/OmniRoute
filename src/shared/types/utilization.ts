@@ -37,7 +37,6 @@ export interface ComboHealthMetrics {
     model: string;
     provider: string;
     connectionId: string | null;
-    label: string | null;
     requests: number;
     successRate: number;
     avgLatencyMs: number;
@@ -121,7 +120,6 @@ export interface ComboForecastTarget {
   provider: string;
   model: string;
   connectionId: string | null;
-  label: string | null;
   trafficShare: number;
   history: {
     requests: number;
@@ -355,7 +353,6 @@ export interface ComboScoringInspectorTarget {
   provider: string;
   model: string;
   connectionId: string | null;
-  label: string | null;
   rank: number;
   score: number;
   factors: ComboScoringInspectorFactor[];

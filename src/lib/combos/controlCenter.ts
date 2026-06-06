@@ -52,7 +52,6 @@ export interface ComboControlCenterTargetHealth {
   model?: string;
   provider?: string;
   connectionId?: string | null;
-  label?: string | null;
   requests?: number;
   successRate?: number;
   avgLatencyMs?: number;
