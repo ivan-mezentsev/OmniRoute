@@ -93,6 +93,8 @@ export async function getSettings() {
     mcpEnabled: false,
     a2aEnabled: false,
     hiddenSidebarItems: [],
+    pinnedSections: ["omni-proxy"],
+    pinnedItems: [],
     sidebarSectionOrder: [],
     sidebarItemOrder: {},
     sidebarActivePreset: null,

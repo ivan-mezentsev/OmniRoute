@@ -42,6 +42,8 @@ export const updateSettingsSchema = z.object({
   showQuickStartOnHome: z.boolean().optional(),
   showProviderTopologyOnHome: z.boolean().optional(),
   showUpdateAvailableOnHome: z.boolean().optional(),
+  pinnedSections: z.array(z.string().max(100)).optional(),
+  pinnedItems: z.array(z.string().max(100)).optional(),
   autoRefreshProviderQuota: z.boolean().optional(),
   autoRefreshProviderQuotaInterval: z.number().int().min(10).max(3600).optional(),
   debugMode: z.boolean().optional(),

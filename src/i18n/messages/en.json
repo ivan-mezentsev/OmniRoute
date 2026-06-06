@@ -688,6 +688,7 @@
     "recommended": "Recommended"
   },
   "sidebar": {
+    "pinned": "Pinned",
     "home": "Home",
     "dashboard": "Dashboard",
     "providers": "Providers",

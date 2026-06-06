@@ -704,6 +704,8 @@ export const updateSettingsSchema = z.object({
   showQuickStartOnHome: z.boolean().optional(),
   showProviderTopologyOnHome: z.boolean().optional(),
   showUpdateAvailableOnHome: z.boolean().optional(),
+  pinnedSections: z.array(z.string().max(100)).optional(),
+  pinnedItems: z.array(z.string().max(100)).optional(),
   bruteForceProtection: z.boolean().optional(),
   hiddenSidebarItems: z.array(z.enum(HIDEABLE_SIDEBAR_ITEM_IDS)).optional(),
   comboConfigMode: z.enum(COMBO_CONFIG_MODES).optional(),
