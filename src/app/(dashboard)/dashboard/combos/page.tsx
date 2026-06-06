@@ -644,10 +644,8 @@ function formatComboEntryDisplay(
   const providerNode =
     findProviderNodeByIdentifier(providerNodes, displayProviderIdentifier) ||
     findProviderNodeByIdentifier(providerNodes, providerIdentifier);
-  const providerLabel =
-    builderProvider?.displayName || getProviderDisplayName(displayProviderIdentifier, providerNode);
-  const modelLabel =
-    builderProvider?.models?.find((model) => model.id === parsed.modelId)?.name || parsed.modelId;
+  const providerLabel = displayProviderIdentifier || "unknown";
+  const modelLabel = parsed.modelId || "unknown";
 
   if (!includeConnection) {
     return `${providerLabel}/${modelLabel}`;

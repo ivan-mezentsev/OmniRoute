@@ -25,11 +25,11 @@ test("buildPrecisionComboModelStep preserves provider/model/account triple", () 
       weight: 35,
     }),
     {
+      id: "model-codex-gpt-5-3-codex-conn-codex-a",
       kind: "model",
       providerId: "codex",
       model: "codex/gpt-5.3-codex",
       connectionId: "conn-codex-a",
-      label: "Codex A",
       weight: 35,
     }
   );
