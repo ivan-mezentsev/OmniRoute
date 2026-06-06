@@ -1141,7 +1141,7 @@ test("OpenAI -> Gemini request maps google_search tool", () => {
     "gemini-2.0-flash",
     {
       messages: [{ role: "user", content: "What happened today?" }],
-      tools: [{ type: "function", function: { name: "google_search" } }],
+      tools: [{ google_search: {} }],
     },
     false
   );

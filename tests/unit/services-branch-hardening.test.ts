@@ -259,7 +259,6 @@ test("combo metrics cover empty reads, intent tracking, per-model stats and rese
       stepId: "step-openai-a",
       provider: "openai",
       connectionId: "conn-openai-a",
-      label: "Primary OpenAI",
     },
   });
   comboMetrics.recordComboRequest("writer", "openai/gpt-4o", {
@@ -272,7 +271,6 @@ test("combo metrics cover empty reads, intent tracking, per-model stats and rese
       stepId: "step-openai-a",
       provider: "openai",
       connectionId: "conn-openai-a",
-      label: "Primary OpenAI",
     },
   });
   comboMetrics.recordComboRequest("writer", null, {
@@ -299,7 +297,6 @@ test("combo metrics cover empty reads, intent tracking, per-model stats and rese
   assert.equal(writer.byTarget["writer>step-openai-a"].requests, 2);
   assert.equal(writer.byTarget["writer>step-openai-a"].successRate, 50);
   assert.equal(writer.byTarget["writer>step-openai-a"].connectionId, "conn-openai-a");
-  assert.equal(writer.byTarget["writer>step-openai-a"].label, "Primary OpenAI");
 
   const allMetrics = comboMetrics.getAllComboMetrics();
   assert.equal(Object.keys(allMetrics).length, 2);

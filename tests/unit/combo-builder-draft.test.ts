@@ -21,7 +21,6 @@ test("buildPrecisionComboModelStep preserves provider/model/account triple", () 
       providerId: "codex",
       modelId: "gpt-5.3-codex",
       connectionId: "conn-codex-a",
-      connectionLabel: "Codex A",
       weight: 35,
     }),
     {
@@ -42,6 +41,7 @@ test("buildManualComboModelStep resolves provider aliases and uses dynamic accou
       providers: [{ providerId: "codex", alias: "cx" }],
     }),
     {
+      id: "model-codex-gpt-5-5",
       kind: "model",
       providerId: "codex",
       model: "codex/gpt-5.5",
@@ -55,6 +55,7 @@ test("buildManualComboModelStep resolves provider aliases and uses dynamic accou
       providers: [{ providerId: "openrouter", alias: "openrouter" }],
     }),
     {
+      id: "model-openrouter-openai-gpt-5-5",
       kind: "model",
       providerId: "openrouter",
       model: "openrouter/openai/gpt-5.5",

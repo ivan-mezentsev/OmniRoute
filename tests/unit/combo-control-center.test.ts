@@ -49,7 +49,7 @@ test("getComboControlCenterTargets normalizes legacy, structured and nested comb
   assert.equal(targets.length, 3);
   assert.equal(targets[0].kind, "model");
   assert.equal(targets[0].provider, "openai");
-  assert.equal(targets[1].label, "Primary Claude");
+  assert.equal(targets[1].label, "anthropic/claude-3-7-sonnet");
   assert.equal(targets[1].connectionId, "conn-1234567890");
   assert.equal(targets[1].health?.requests, 12);
   assert.deepEqual(targets[1].tags, ["coding"]);

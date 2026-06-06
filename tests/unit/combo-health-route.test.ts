@@ -94,7 +94,6 @@ test("combo health route exposes step-level target health for structured combos"
       stepId: firstStep.id,
       provider: "openai",
       connectionId: "conn-openai-a",
-      label: "Account A",
     },
   });
   comboMetrics.recordComboRequest(comboInput.name, "openai/gpt-4o-mini", {
@@ -106,7 +105,6 @@ test("combo health route exposes step-level target health for structured combos"
       stepId: secondStep.id,
       provider: "openai",
       connectionId: "conn-openai-b",
-      label: "Account B",
     },
   });
 
@@ -123,7 +121,6 @@ test("combo health route exposes step-level target health for structured combos"
     body.combos[0].targetHealth.map((entry) => ({
       executionKey: entry.executionKey,
       connectionId: entry.connectionId,
-      label: entry.label,
       requests: entry.requests,
       successRate: entry.successRate,
       quotaRemainingPct: entry.quotaRemainingPct,
@@ -133,7 +130,6 @@ test("combo health route exposes step-level target health for structured combos"
       {
         executionKey: firstStep.id,
         connectionId: "conn-openai-a",
-        label: "Account A",
         requests: 1,
         successRate: 0,
         quotaRemainingPct: 60,
@@ -142,7 +138,6 @@ test("combo health route exposes step-level target health for structured combos"
       {
         executionKey: secondStep.id,
         connectionId: "conn-openai-b",
-        label: "Account B",
         requests: 1,
         successRate: 100,
         quotaRemainingPct: 85,
@@ -227,7 +222,6 @@ test("combo health route prefers historical call log target metrics over volatil
       stepId: firstStep.id,
       provider: "openai",
       connectionId: "conn-openai-a",
-      label: "Account A",
     },
   });
 

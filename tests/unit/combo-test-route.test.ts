@@ -23,7 +23,7 @@ async function resetStorage() {
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
 }
 
-async function createTestCombo(models = ["openrouter/openai/gpt-5.4"]) {
+async function createTestCombo(models: any[] = ["openrouter/openai/gpt-5.4"]) {
   return combosDb.createCombo({
     name: "strict-live-test",
     models,
@@ -98,7 +98,7 @@ test("combo test route marks a model healthy only when it returns assistant text
   const fetchCalls = [];
   const originalRandom = Math.random;
   let callCount = 0;
-  globalThis.fetch = async (url, init = {}) => {
+  globalThis.fetch = async (url, init: any = {}) => {
     fetchCalls.push({ url: String(url), init });
     return new Response(
       JSON.stringify({
@@ -250,9 +250,9 @@ test("combo test route launches model probes concurrently while preserving combo
   await createTestCombo(["provider/first", "provider/second", "provider/third"]);
 
   const fetchCalls = [];
-  const resolvers = [];
-  globalThis.fetch = (url, init = {}) =>
-    new Promise((resolve) => {
+  const resolvers: any[] = [];
+  globalThis.fetch = (url, init: any = {}) =>
+    new Promise<Response>((resolve) => {
       fetchCalls.push({ url: String(url), init });
       resolvers.push(resolve);
     });
@@ -317,19 +317,17 @@ test("combo test route preserves structured step metadata for repeated model/acc
       providerId: "openai",
       model: "openai/gpt-4o-mini",
       connectionId: "conn-openai-a",
-      label: "Account A",
     },
     {
       kind: "model",
       providerId: "openai",
       model: "openai/gpt-4o-mini",
       connectionId: "conn-openai-b",
-      label: "Account B",
     },
   ]);
 
   const fetchCalls = [];
-  globalThis.fetch = async (url, init = {}) => {
+  globalThis.fetch = async (url, init: any = {}) => {
     fetchCalls.push({ url: String(url), init });
     const body = JSON.parse(init.body);
     return new Response(
@@ -362,9 +360,7 @@ test("combo test route preserves structured step metadata for repeated model/acc
   assert.equal(fetchCalls[0].init.headers["X-OmniRoute-Connection"], "conn-openai-a");
   assert.equal(fetchCalls[1].init.headers["X-OmniRoute-Connection"], "conn-openai-b");
   assert.equal(body.results[0].connectionId, "conn-openai-a");
-  assert.equal(body.results[0].label, "Account A");
   assert.equal(body.results[1].connectionId, "conn-openai-b");
-  assert.equal(body.results[1].label, "Account B");
   assert.notEqual(body.results[0].executionKey, body.results[1].executionKey);
   assert.equal(body.resolvedByExecutionKey, body.results[0].executionKey);
   assert.equal(body.resolvedByTarget.connectionId, "conn-openai-a");

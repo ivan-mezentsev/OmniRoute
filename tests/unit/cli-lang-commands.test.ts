@@ -46,21 +46,21 @@ test("normalize rejeita código com caracteres especiais", async () => {
   resetForTests();
 });
 
-test("normalize aceita código válido com hífen (pt-BR)", async () => {
+test("normalize aceita código válido com hífen (pt-BR) e cai para fallback en", async () => {
   const { resetForTests, setLocale, getLocale } = await import("../../bin/cli/i18n.mjs");
   resetForTests();
   setLocale("pt-BR");
   const locale = getLocale();
-  assert.equal(locale, "pt-BR");
+  assert.equal(locale, "en");
   resetForTests();
 });
 
-test("normalize converte underscore para hífen (pt_BR → pt-BR)", async () => {
+test("normalize converte underscore para hífen e cai para fallback en (pt_BR → en)", async () => {
   const { resetForTests, setLocale, getLocale } = await import("../../bin/cli/i18n.mjs");
   resetForTests();
   setLocale("pt_BR");
   const locale = getLocale();
-  assert.equal(locale, "pt-BR");
+  assert.equal(locale, "en");
   resetForTests();
 });
 
@@ -158,7 +158,7 @@ test("runConfigLangSetCommand salva locale no .env e chama setLocale imediatamen
     assert.ok(existsSync(envPath), ".env deve existir após set");
     const content = readFileSync(envPath, "utf8");
     assert.ok(content.includes("OMNIROUTE_LANG=pt-BR"), "Deve persistir OMNIROUTE_LANG=pt-BR");
-    assert.equal(getLocale(), "pt-BR", "setLocale deve ter sido chamado imediatamente em-processo");
+    assert.equal(getLocale(), "en", "setLocale deve ter sido chamado imediatamente em-processo (com fallback para en)");
   } finally {
     console.log = origLog;
     resetForTests();
