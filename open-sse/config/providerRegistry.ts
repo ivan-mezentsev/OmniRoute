@@ -632,7 +632,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
     oauth: {
       clientIdEnv: "CLAUDE_OAUTH_CLIENT_ID",
       clientIdDefault: "9d1c250a-e61b-44d9-88ed-5944d1962f5e",
-      tokenUrl: "https://console.anthropic.com/v1/oauth/token",
+      tokenUrl: "https://api.anthropic.com/v1/oauth/token",
     },
     models: [
       {
