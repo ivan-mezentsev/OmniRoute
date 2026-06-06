@@ -1,8 +1,14 @@
--- Migration 075: Drop gamification & leaderboard system
+-- Migration 092: Drop gamification & leaderboard system
 --
 -- Removes all tables and indexes created by migration 060 (Gamification &
 -- Leaderboard). The gamification feature has been removed from the codebase,
 -- so this migration cleans up the schema and data on existing databases.
+--
+-- Numbered 092 (not 075) on purpose: the migration runner tracks applied
+-- migrations by version number, and upstream already ships migrations
+-- 075..091. Reusing an existing version number would make the runner treat
+-- this drop as "already applied" and silently skip it. 092 is the first free
+-- slot above the highest known upstream migration.
 --
 -- Safe to run on databases that never had migration 060 applied: every
 -- statement uses IF EXISTS.
