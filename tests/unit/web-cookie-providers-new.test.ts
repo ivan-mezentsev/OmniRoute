@@ -37,11 +37,59 @@ function mockJSONLStream(lines: string[]) {
   });
 }
 
+function encodeConnectFrame(payload: unknown, flag = 0x00) {
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  const frame = new Uint8Array(5 + bytes.length);
+  frame[0] = flag;
+  new DataView(frame.buffer).setUint32(1, bytes.length, false);
+  frame.set(bytes, 5);
+  return frame;
+}
+
+function mockConnectStream(frames: Array<{ payload: unknown; flag?: number }>) {
+  return new ReadableStream({
+    start(controller) {
+      for (const frame of frames) {
+        controller.enqueue(encodeConnectFrame(frame.payload, frame.flag));
+      }
+      controller.close();
+    },
+  });
+}
+
+function toUint8Array(value: unknown) {
+  if (value instanceof Uint8Array) return value;
+  if (value instanceof ArrayBuffer) return new Uint8Array(value);
+  if (ArrayBuffer.isView(value)) {
+    return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  }
+  return new Uint8Array(0);
+}
+
+function decodeSingleConnectRequest(body: unknown) {
+  const bytes = toUint8Array(body);
+  assert.ok(bytes.byteLength >= 5, "expected a Connect-framed request body");
+  const payloadLength = new DataView(bytes.buffer, bytes.byteOffset + 1, 4).getUint32(0, false);
+  const payloadBytes = bytes.slice(5, 5 + payloadLength);
+  return JSON.parse(new TextDecoder().decode(payloadBytes));
+}
+
+function headersToRecord(headers: HeadersInit | undefined): Record<string, string> {
+  if (!headers) return {};
+  if (headers instanceof Headers) {
+    return Object.fromEntries(headers.entries());
+  }
+  if (Array.isArray(headers)) {
+    return Object.fromEntries(headers);
+  }
+  return { ...headers };
+}
+
 function mockFetchCapture(status = 200, responseBody?: ReadableStream | string) {
   const original = globalThis.fetch;
   let capturedUrl: string | null = null;
   let capturedHeaders: Record<string, string> = {};
-  let capturedBody: string | null = null;
+  let capturedBody: unknown = null;
 
   const body =
     typeof responseBody === "string"
@@ -53,9 +101,9 @@ function mockFetchCapture(status = 200, responseBody?: ReadableStream | string) 
         })
       : responseBody;
 
-  globalThis.fetch = async (url: any, opts: any) => {
+  globalThis.fetch = async (url: unknown, opts?: RequestInit) => {
     capturedUrl = String(url);
-    capturedHeaders = opts?.headers || {};
+    capturedHeaders = headersToRecord(opts?.headers);
     capturedBody = opts?.body || null;
     return new Response(body || "", {
       status,
@@ -126,7 +174,6 @@ test("v0 Vercel Web executor is registered", () => {
 
 test("Kimi Web executor is registered", () => {
   assert.ok(hasSpecializedExecutor("kimi-web"));
-  assert.ok(hasSpecializedExecutor("kimi"));
   const executor = getExecutor("kimi-web");
   assert.ok(executor instanceof KimiWebExecutor);
 });
@@ -186,7 +233,7 @@ test("HuggingChat: streaming returns SSE chunks", async () => {
 
   const original = globalThis.fetch;
   let callCount = 0;
-  globalThis.fetch = async (url: any, opts: any) => {
+  globalThis.fetch = async (url: unknown, opts?: RequestInit) => {
     callCount++;
     if (callCount === 1) {
       // First call: create conversation
@@ -228,7 +275,7 @@ test("HuggingChat: non-streaming returns JSON completion", async () => {
 
   const original = globalThis.fetch;
   let callCount = 0;
-  globalThis.fetch = async (url: any, opts: any) => {
+  globalThis.fetch = async (url: unknown, opts?: RequestInit) => {
     callCount++;
     if (callCount === 1) {
       return new Response(JSON.stringify({ conversationId: "test-conv-123" }), {
@@ -437,18 +484,70 @@ test("v0 Vercel Web: error response returns error result", async () => {
 // ── Kimi Web Execution Tests ─────────────────────────────────────────────────
 
 test("Kimi Web: streaming passes through SSE", async () => {
-  const sseData = [
-    'data: {"choices":[{"delta":{"content":"你好"}}]}',
-  ];
-  const restore = mockFetchCapture(200, mockSSEStream(sseData));
+  const kimiToken = [
+    "header",
+    Buffer.from(
+      JSON.stringify({
+        app_id: "kimi",
+        typ: "access",
+        device_id: "7000000000000000001",
+        ssid: "1700000000000000001",
+      })
+    ).toString("base64url"),
+    "signature",
+  ].join(".");
+  const restore = mockFetchCapture(
+    200,
+    mockConnectStream([
+      { payload: { heartbeat: {} } },
+      {
+        payload: {
+          op: "set",
+          mask: "block.think",
+          block: { think: { content: "Plan" } },
+        },
+      },
+      {
+        payload: {
+          op: "set",
+          mask: "block.text",
+          block: { text: { content: "Hello" } },
+        },
+      },
+      {
+        payload: {
+          op: "append",
+          mask: "block.text.content",
+          block: { text: { content: " world" } },
+        },
+      },
+      { payload: { done: {} } },
+      { flag: 0x02, payload: {} },
+    ])
+  );
   try {
     const executor = new KimiWebExecutor();
     const result = await executor.execute({
       ...noopExecuteInput,
-      model: "kimi-default",
+      model: "kimi-k2.6-thinking",
+      credentials: { apiKey: `theme=dark; kimi-auth=${kimiToken}` },
     });
     assert.ok(result.response instanceof Response);
-    assert.ok(result.url.includes("kimi.moonshot.cn"));
+    assert.ok(result.url.includes("www.kimi.com/apiv2/kimi.gateway.chat.v1.ChatService/Chat"));
+    assert.equal(restore.headers["Content-Type"], "application/connect+json");
+    assert.equal(restore.headers["Connect-Protocol-Version"], "1");
+    assert.ok(String(restore.headers.Authorization || "").startsWith("Bearer "));
+
+    const requestBody = decodeSingleConnectRequest(restore.body);
+    assert.equal(requestBody.scenario, "SCENARIO_K2D5");
+    assert.equal(requestBody.message.scenario, "SCENARIO_K2D5");
+    assert.equal(requestBody.options.thinking, true);
+
+    const text = await result.response.text();
+    assert.ok(text.includes('"reasoning_content":"Plan"'));
+    assert.ok(text.includes('"content":"Hello"'));
+    assert.ok(text.includes('"content":" world"'));
+    assert.ok(text.includes("[DONE]"));
   } finally {
     restore.restore();
   }
@@ -513,8 +612,8 @@ test("All executors handle Cookie: prefix", async () => {
 
   const original = globalThis.fetch;
   let lastHeaders: Record<string, string> = {};
-  globalThis.fetch = async (_url: any, opts: any) => {
-    lastHeaders = opts?.headers || {};
+  globalThis.fetch = async (_url: unknown, opts?: RequestInit) => {
+    lastHeaders = headersToRecord(opts?.headers);
     // Poe expects JSON response with chatWithBot
     const body = JSON.stringify({ data: { chatWithBot: { text: "ok" } } });
     return new Response(body, {
@@ -551,8 +650,8 @@ test("All executors handle bare cookie value", async () => {
 
   const original = globalThis.fetch;
   let lastHeaders: Record<string, string> = {};
-  globalThis.fetch = async (_url: any, opts: any) => {
-    lastHeaders = opts?.headers || {};
+  globalThis.fetch = async (_url: unknown, opts?: RequestInit) => {
+    lastHeaders = headersToRecord(opts?.headers);
     // Poe expects JSON response with chatWithBot
     const body = JSON.stringify({ data: { chatWithBot: { text: "ok" } } });
     return new Response(body, {
@@ -583,7 +682,7 @@ test("HuggingChat: respects abort signal", async () => {
 
   const original = globalThis.fetch;
   let fetchCalled = false;
-  globalThis.fetch = async (_url: any, _opts: any) => {
+  globalThis.fetch = async (_url: unknown, _opts?: RequestInit) => {
     fetchCalled = true;
     return new Response("ok", { status: 200 });
   };

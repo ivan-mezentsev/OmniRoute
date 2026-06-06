@@ -3921,12 +3921,14 @@ export const REGISTRY: Record<string, RegistryEntry> = {
     alias: "kimi-web",
     format: "openai",
     executor: "kimi-web",
-    baseUrl: "https://kimi.moonshot.cn/api/chat",
+    baseUrl: "https://www.kimi.com",
     authType: "apikey",
     authHeader: "cookie",
     models: [
-      { id: "kimi-default", name: "Kimi Default" },
-      { id: "kimi-128k", name: "Kimi 128K (Long Context)" },
+      { id: "kimi-k2.6", name: "K2.6 Instant" },
+      { id: "kimi-k2.6-thinking", name: "K2.6 Thinking" },
+      { id: "kimi-k2.6-agent", name: "K2.6 Agent" },
+      { id: "kimi-k2.6-agent-swarm", name: "K2.6 Agent Swarm" },
     ],
   },
 

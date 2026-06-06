@@ -503,8 +503,9 @@ export const WEB_COOKIE_PROVIDERS = {
     icon: "auto_awesome",
     color: "#2563EB",
     textIcon: "KW",
-    website: "https://kimi.moonshot.cn",
-    authHint: "Paste your session cookie from kimi.moonshot.cn (DevTools → Application → Cookies)",
+    website: "https://www.kimi.com",
+    authHint:
+      "Paste your kimi-auth cookie or full Cookie header from www.kimi.com (DevTools → Application → Cookies).",
     subscriptionRisk: true,
     riskNoticeVariant: "webCookie",
   },

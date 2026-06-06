@@ -76,6 +76,13 @@ import {
   persistDiscoveredModels,
 } from "@/lib/providerModels/modelDiscovery";
 import { fetchCursorAgentModels } from "@/lib/providerModels/cursorAgent";
+import {
+  buildKimiWebDiscoveryHeaders,
+  KIMI_WEB_BASE_URL,
+  KIMI_WEB_MODELS_PATH,
+  normalizeKimiWebCatalog,
+  parseKimiWebAuth,
+} from "@omniroute/open-sse/services/kimiWeb.ts";
 
 type JsonRecord = Record<string, unknown>;
 const antigravityDiscoveryInflight = new Map<
@@ -828,7 +835,7 @@ export async function GET(
       }
     ) => {
       const status = getSafeOutboundFetchErrorStatus(error);
-      if (status === 400 || status === 503 || status === 504) return null;
+      if (status === 503 || status === 504) return null;
       return buildDiscoveryFallbackResponse(warnings);
     };
 
@@ -883,6 +890,70 @@ export async function GET(
     if (provider === "reka") {
       const localCatalog = buildLocalCatalogResponse();
       if (localCatalog) return localCatalog;
+    }
+
+    if (provider === "kimi-web") {
+      const cachedResponse = maybeReturnCachedDiscovery();
+      if (cachedResponse) return cachedResponse;
+
+      const autoFetchDisabledResponse = maybeReturnAutoFetchDisabled();
+      if (autoFetchDisabledResponse) return autoFetchDisabledResponse;
+
+      const auth = parseKimiWebAuth(apiKey || accessToken);
+      if (!auth.token) {
+        const fallback = buildDiscoveryFallbackResponse({
+          cacheWarning: "Kimi Web auth unavailable — using cached catalog",
+          localWarning: "Kimi Web auth unavailable — using local catalog",
+        });
+        if (fallback) return fallback;
+        return NextResponse.json(
+          {
+            error:
+              "Kimi Web requires a kimi-auth token or a full Cookie header containing kimi-auth.",
+          },
+          { status: 400 }
+        );
+      }
+
+      let response: Response;
+      try {
+        response = await safeOutboundFetch(`${KIMI_WEB_BASE_URL}${KIMI_WEB_MODELS_PATH}`, {
+          ...SAFE_OUTBOUND_FETCH_PRESETS.modelsDiscovery,
+          guard: getProviderOutboundGuard(),
+          proxyConfig: proxy,
+          method: "POST",
+          headers: buildKimiWebDiscoveryHeaders(auth),
+          body: JSON.stringify({}),
+        });
+      } catch (error) {
+        const fallback = buildDiscoveryErrorFallbackResponse(error, {
+          cacheWarning: "Kimi Web model catalog unavailable — using cached catalog",
+          localWarning: "Kimi Web model catalog unavailable — using local catalog",
+        });
+        if (fallback) return fallback;
+        throw error;
+      }
+
+      if (!response.ok) {
+        const fallback = buildDiscoveryFallbackResponse({
+          cacheWarning: `Kimi Web catalog probe failed (${response.status}) — using cached catalog`,
+          localWarning: `Kimi Web catalog probe failed (${response.status}) — using local catalog`,
+        });
+        if (fallback) return fallback;
+        return NextResponse.json(
+          { error: `Failed to fetch models: ${response.status}` },
+          { status: response.status }
+        );
+      }
+
+      const models = normalizeKimiWebCatalog(await response.json()).map((model) => ({
+        id: model.id,
+        name: model.name,
+        ...(typeof model.description === "string" ? { description: model.description } : {}),
+        ...(model.supportsThinking === true ? { supportsThinking: true } : {}),
+      }));
+
+      return buildApiDiscoveryResponse(models);
     }
 
     if (provider === "bedrock") {
@@ -1426,7 +1497,9 @@ export async function GET(
       const psd = asRecord(connection.providerSpecificData);
       const baseUrl = getProviderBaseUrl(psd) || OCI_DEFAULT_BASE_URL;
       const projectId =
-        connection.projectId || toNonEmptyString(psd.projectId) || toNonEmptyString(psd.project);
+        toNonEmptyString(connection.projectId) ||
+        toNonEmptyString(psd.projectId) ||
+        toNonEmptyString(psd.project);
 
       let response: Response;
       try {
@@ -1616,8 +1689,10 @@ export async function GET(
 
         const modelsResp = await safeOutboundFetch(
           "https://platformapi.innerai.com/api/v1/ai_models",
-          { headers: innerAiHeaders },
-          getProviderOutboundGuard(provider)
+          {
+            headers: innerAiHeaders,
+            guard: getProviderOutboundGuard(),
+          }
         );
         if (!modelsResp.ok) {
           throw new Error(`Inner.ai models API returned HTTP ${modelsResp.status}`);
