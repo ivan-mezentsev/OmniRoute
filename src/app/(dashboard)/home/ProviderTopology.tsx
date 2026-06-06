@@ -208,8 +208,8 @@ function buildLayout(
 
   // Sort: active → error → last-used → rest (alpha within groups)
   const sorted = [...providers].sort((a, b) => {
-    const aId = a.provider.toLowerCase();
-    const bId = b.provider.toLowerCase();
+    const aId = (a.provider || "").toLowerCase();
+    const bId = (b.provider || "").toLowerCase();
     const rank = (id: string) => {
       if (activeSet.has(id)) return 0;
       if (errorSet.has(id)) return 1;
@@ -227,7 +227,7 @@ function buildLayout(
 
     for (let i = 0; i < count; i++) {
       const p = sorted[provIdx++];
-      const pid = p.provider.toLowerCase();
+      const pid = (p.provider || "").toLowerCase();
       const active = activeSet.has(pid);
       const error = !active && errorSet.has(pid);
       const last = !active && !error && lastSet.has(pid);
@@ -291,8 +291,8 @@ export default function ProviderTopology({
         .join(","),
     [activeRequests]
   );
-  const lastKey = lastProvider.toLowerCase();
-  const errorKey = errorProvider.toLowerCase();
+  const lastKey = (lastProvider || "").toLowerCase();
+  const errorKey = (errorProvider || "").toLowerCase();
 
   const rawActiveSet = useMemo(
     () => new Set<string>(activeKey ? activeKey.split(",") : []),

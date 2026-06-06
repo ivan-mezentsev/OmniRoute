@@ -125,16 +125,16 @@ const ProviderIcon = memo(function ProviderIcon({
   className,
   style,
 }: ProviderIconProps) {
-  const normalizedId = providerId.toLowerCase();
-  const lobeIcon = getLobeProviderIcon(normalizedId, type);
+  const normalizedId = (providerId || "").toLowerCase();
+  const lobeIcon = normalizedId ? getLobeProviderIcon(normalizedId, type) : null;
   const hasPng = KNOWN_PNGS.has(normalizedId);
   const hasSvg = KNOWN_SVGS.has(normalizedId);
 
   const [failedAssets, setFailedAssets] = useState<Record<string, true>>({});
   const pngKey = `${normalizedId}:png`;
   const svgKey = `${normalizedId}:svg`;
-  const usePng = !lobeIcon && hasPng && !failedAssets[pngKey];
-  const useSvg = !lobeIcon && hasSvg && !failedAssets[svgKey] && (!hasPng || failedAssets[pngKey]);
+  const usePng = !lobeIcon && normalizedId && hasPng && !failedAssets[pngKey];
+  const useSvg = !lobeIcon && normalizedId && hasSvg && !failedAssets[svgKey] && (!hasPng || failedAssets[pngKey]);
 
   if (lobeIcon) {
     return (
@@ -143,7 +143,7 @@ const ProviderIcon = memo(function ProviderIcon({
         style={{ display: "inline-flex", alignItems: "center", ...style }}
       >
         {createElement(lobeIcon, {
-          "aria-label": providerId,
+          "aria-label": providerId || "AI Provider",
           size,
           style: { flex: "none" },
         })}
@@ -159,7 +159,7 @@ const ProviderIcon = memo(function ProviderIcon({
       >
         <Image
           src={`/providers/${normalizedId}.png`}
-          alt={providerId}
+          alt={providerId || "AI Provider"}
           width={size}
           height={size}
           style={{ objectFit: "contain" }}
@@ -180,7 +180,7 @@ const ProviderIcon = memo(function ProviderIcon({
       >
         <Image
           src={`/providers/${normalizedId}.svg`}
-          alt={providerId}
+          alt={providerId || "AI Provider"}
           width={size}
           height={size}
           style={{ objectFit: "contain" }}

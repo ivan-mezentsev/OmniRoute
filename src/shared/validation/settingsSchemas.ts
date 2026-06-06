@@ -34,6 +34,14 @@ export const updateSettingsSchema = z.object({
   hideEndpointCloudflaredTunnel: z.boolean().optional(),
   hideEndpointTailscaleFunnel: z.boolean().optional(),
   hideEndpointNgrokTunnel: z.boolean().optional(),
+  // Home page widget visibility toggles. These were previously only declared in
+  // the unused `schemas.ts` copy of this schema, so PATCH /api/settings silently
+  // stripped them (Zod strips unknown keys by default) — the request returned 200
+  // but the value never reached the DB, resetting to default after reload.
+  pinProviderQuotaToHome: z.boolean().optional(),
+  showQuickStartOnHome: z.boolean().optional(),
+  showProviderTopologyOnHome: z.boolean().optional(),
+  showUpdateAvailableOnHome: z.boolean().optional(),
   autoRefreshProviderQuota: z.boolean().optional(),
   autoRefreshProviderQuotaInterval: z.number().int().min(10).max(3600).optional(),
   debugMode: z.boolean().optional(),

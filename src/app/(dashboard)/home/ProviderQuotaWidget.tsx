@@ -224,7 +224,7 @@ export default function ProviderQuotaWidget({ autoRefreshInterval = 0 }: Provide
                   className="rounded-lg border border-border bg-surface/40 p-3 flex flex-col gap-2"
                 >
                   <div className="flex items-center gap-2">
-                    <ProviderIcon provider={provider} size={18} />
+                    <ProviderIcon providerId={provider} size={18} />
                     <span className="font-medium text-sm truncate">
                       {provider.charAt(0).toUpperCase() + provider.slice(1)}
                     </span>

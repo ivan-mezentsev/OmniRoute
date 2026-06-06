@@ -196,6 +196,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
   const [pinProviderQuotaToHome, setPinProviderQuotaToHome] = useState(false);
   const [showQuickStartOnHome, setShowQuickStartOnHome] = useState(true); // default on
   const [showProviderTopologyOnHome, setShowProviderTopologyOnHome] = useState(true); // default on
+  const [showUpdateAvailableOnHome, setShowUpdateAvailableOnHome] = useState(true); // default on
   const [autoRefreshProviderQuota, setAutoRefreshProviderQuota] = useState(false);
   const [autoRefreshProviderQuotaInterval, setAutoRefreshProviderQuotaInterval] = useState(180);
 
@@ -203,7 +204,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
     // Fetch the pin settings (lightweight)
     fetch("/api/settings")
       .then((r) => (r.ok ? r.json() : {}))
-      .then((data) => {
+      .then((data: Record<string, unknown>) => {
         if (data) {
           if (typeof data.pinProviderQuotaToHome === "boolean") {
             setPinProviderQuotaToHome(data.pinProviderQuotaToHome);
@@ -213,6 +214,9 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
           }
           if (typeof data.showProviderTopologyOnHome === "boolean") {
             setShowProviderTopologyOnHome(data.showProviderTopologyOnHome);
+          }
+          if (typeof data.showUpdateAvailableOnHome === "boolean") {
+            setShowUpdateAvailableOnHome(data.showUpdateAvailableOnHome);
           }
           if (typeof data.autoRefreshProviderQuota === "boolean") {
             setAutoRefreshProviderQuota(data.autoRefreshProviderQuota);
@@ -900,7 +904,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
       )}
 
       {/* Update Notification Banner */}
-      {versionInfo?.updateAvailable && !showUpdateOverlay && (
+      {versionInfo?.updateAvailable && !showUpdateOverlay && showUpdateAvailableOnHome && (
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-3 rounded-lg border border-primary/20 bg-primary/10 px-5 py-4 text-primary">
             <div className="flex min-h-[48px] items-center justify-between">

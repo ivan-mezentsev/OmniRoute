@@ -38,6 +38,7 @@ export default function AppearanceTab() {
   const pinProviderQuotaToHome = settings.pinProviderQuotaToHome === true;
   const showQuickStartOnHome = settings.showQuickStartOnHome !== false;
   const showProviderTopologyOnHome = settings.showProviderTopologyOnHome !== false;
+  const showUpdateAvailableOnHome = settings.showUpdateAvailableOnHome !== false;
   const autoRefreshProviderQuota = settings.autoRefreshProviderQuota === true;
   const autoRefreshProviderQuotaInterval = Number.isFinite(settings.autoRefreshProviderQuotaInterval)
     ? Number(settings.autoRefreshProviderQuotaInterval)
@@ -229,6 +230,27 @@ export default function AppearanceTab() {
                   checked={showQuickStartOnHome}
                   onChange={async (checked) => {
                     await updateSetting("showQuickStartOnHome", checked);
+                  }}
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="flex items-start justify-between gap-4 px-4 py-3">
+                <div>
+                  <p className="font-medium">
+                    {getSettingsLabel("homeUpdateAvailable", "Update Available")}
+                  </p>
+                  <p className="text-sm text-text-muted">
+                    {getSettingsLabel(
+                      "homeUpdateAvailableDesc",
+                      "Show the Update Available banner on the Home page when a new version is available."
+                    )}
+                  </p>
+                </div>
+                <Toggle
+                  checked={showUpdateAvailableOnHome}
+                  onChange={async (checked) => {
+                    await updateSetting("showUpdateAvailableOnHome", checked);
                   }}
                   disabled={loading}
                 />
