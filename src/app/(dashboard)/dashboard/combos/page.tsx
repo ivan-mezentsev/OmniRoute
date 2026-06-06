@@ -18,6 +18,7 @@ import { pickDisplayValue } from "@/shared/utils/maskEmail";
 import useEmailPrivacyStore from "@/store/emailPrivacyStore";
 import { useNotificationStore } from "@/store/notificationStore";
 import { ROUTING_STRATEGIES } from "@/shared/constants/routingStrategies";
+import { getProviderByAlias } from "@/shared/constants/providers";
 import {
   COMBO_BUILDER_AUTO_CONNECTION,
   COMBO_BUILDER_STAGES,
@@ -552,18 +553,60 @@ function getModelString(entry) {
 }
 
 function findProviderNodeByIdentifier(providerNodes, providerIdentifier) {
-  return (providerNodes || []).find(
-    (node) => node.id === providerIdentifier || node.prefix === providerIdentifier
+  if (!providerIdentifier) return null;
+  return (
+    (providerNodes || []).find(
+      (node) => node.id === providerIdentifier || node.prefix === providerIdentifier
+    ) || null
   );
 }
 
 function findBuilderProviderByIdentifier(builderProviders, providerIdentifier) {
-  return (builderProviders || []).find(
-    (provider) =>
-      provider.providerId === providerIdentifier ||
-      provider.alias === providerIdentifier ||
-      provider.prefix === providerIdentifier
+  if (!providerIdentifier) return null;
+  return (
+    (builderProviders || []).find(
+      (provider) =>
+        provider.providerId === providerIdentifier ||
+        provider.alias === providerIdentifier ||
+        provider.prefix === providerIdentifier
+    ) || null
   );
+}
+
+function findProviderConnectionById(providerConnections, connectionId) {
+  if (!connectionId) return null;
+  return (providerConnections || []).find((connection) => connection?.id === connectionId) || null;
+}
+
+function getConnectionProviderIdentifier(connection) {
+  return typeof connection?.provider === "string" && connection.provider.trim().length > 0
+    ? connection.provider.trim()
+    : null;
+}
+
+function getConnectionDisplayName(connection) {
+  if (!connection) return null;
+  const displayValue = [connection.name, connection.displayName, connection.email].find(
+    (value) => typeof value === "string" && value.trim().length > 0
+  );
+  return typeof displayValue === "string" ? displayValue.trim() : null;
+}
+
+function getProviderDisplayName(providerIdentifier, providerNode) {
+  const providerNodeName =
+    typeof providerNode?.name === "string" && providerNode.name.trim().length > 0
+      ? providerNode.name.trim()
+      : null;
+  if (providerNodeName) return providerNodeName;
+
+  const providerNodePrefix =
+    typeof providerNode?.prefix === "string" && providerNode.prefix.trim().length > 0
+      ? providerNode.prefix.trim()
+      : null;
+  const catalogProvider =
+    typeof providerIdentifier === "string" ? getProviderByAlias(providerIdentifier) : null;
+
+  return catalogProvider?.name || providerNodePrefix || providerIdentifier;
 }
 
 function formatComboEntryDisplay(
@@ -571,11 +614,13 @@ function formatComboEntryDisplay(
   {
     providerNodes = [],
     builderProviders = [],
+    providerConnections = [],
     includeConnection = false,
     showFullEmails = true,
   }: {
     providerNodes?: any[];
     builderProviders?: any[];
+    providerConnections?: any[];
     includeConnection?: boolean;
     showFullEmails?: boolean;
   } = {}
@@ -589,9 +634,18 @@ function formatComboEntryDisplay(
   if (!parsed) return normalizedEntry.model;
 
   const providerIdentifier = normalizedEntry.providerId || parsed.providerId;
-  const builderProvider = findBuilderProviderByIdentifier(builderProviders, providerIdentifier);
-  const providerNode = findProviderNodeByIdentifier(providerNodes, providerIdentifier);
-  const providerLabel = builderProvider?.displayName || providerNode?.name || providerIdentifier;
+  const connectionId = normalizedEntry.connectionId || null;
+  const liveConnection = findProviderConnectionById(providerConnections, connectionId);
+  const connectionProviderIdentifier = getConnectionProviderIdentifier(liveConnection);
+  const displayProviderIdentifier = connectionProviderIdentifier || providerIdentifier;
+  const builderProvider =
+    findBuilderProviderByIdentifier(builderProviders, displayProviderIdentifier) ||
+    findBuilderProviderByIdentifier(builderProviders, providerIdentifier);
+  const providerNode =
+    findProviderNodeByIdentifier(providerNodes, displayProviderIdentifier) ||
+    findProviderNodeByIdentifier(providerNodes, providerIdentifier);
+  const providerLabel =
+    builderProvider?.displayName || getProviderDisplayName(displayProviderIdentifier, providerNode);
   const modelLabel =
     builderProvider?.models?.find((model) => model.id === parsed.modelId)?.name || parsed.modelId;
 
@@ -599,18 +653,13 @@ function formatComboEntryDisplay(
     return `${providerLabel}/${modelLabel}`;
   }
 
-  const connectionId = normalizedEntry.connectionId || null;
-  const rawConnectionLabel =
-    (connectionId &&
-      builderProvider?.connections?.find((connection) => connection.id === connectionId)?.label) ||
-    normalizedEntry.label ||
-    null;
-  const connectionLabel = rawConnectionLabel
-    ? pickDisplayValue([rawConnectionLabel], showFullEmails, rawConnectionLabel)
+  const rawConnectionName = getConnectionDisplayName(liveConnection);
+  const connectionDisplayName = rawConnectionName
+    ? pickDisplayValue([rawConnectionName], showFullEmails, rawConnectionName)
     : null;
 
   if (connectionId) {
-    return `${providerLabel}/${modelLabel} · ${connectionLabel || `acct ${connectionId.slice(0, 8)}`}`;
+    return `${providerLabel}/${modelLabel} · ${connectionDisplayName || `acct ${connectionId.slice(0, 8)}`}`;
   }
 
   if (normalizedEntry.providerId || builderProvider) {
@@ -634,6 +683,7 @@ export default function CombosPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingCombo, setEditingCombo] = useState(null);
   const [activeProviders, setActiveProviders] = useState([]);
+  const [providerConnections, setProviderConnections] = useState([]);
   const [metrics, setMetrics] = useState({});
   const [testResults, setTestResults] = useState(null);
   const [testingCombo, setTestingCombo] = useState(null);
@@ -728,9 +778,11 @@ export default function CombosPage() {
 
       if (combosRes.ok) setCombos(combosData.combos || []);
       if (providersRes.ok) {
-        const active = (providersData.connections || []).filter(
+        const connections = providersData.connections || [];
+        const active = connections.filter(
           (c) => c.testStatus === "active" || c.testStatus === "success"
         );
+        setProviderConnections(connections);
         setActiveProviders(active);
       }
       if (metricsRes.ok) setMetrics(metricsData.metrics || {});
@@ -1180,6 +1232,7 @@ export default function CombosPage() {
                 metrics={metrics[combo.name]}
                 compressionEnabled={promptCompressionEnabled}
                 providerNodes={providerNodes}
+                providerConnections={providerConnections}
                 copied={copied}
                 onCopy={copy}
                 onEdit={() => setEditingCombo(combo)}
@@ -1223,6 +1276,7 @@ export default function CombosPage() {
         onClose={() => setShowCreateModal(false)}
         onSave={handleCreate}
         activeProviders={activeProviders}
+        providerConnections={providerConnections}
         combo={null}
         comboConfigMode={comboConfigMode}
       />
@@ -1235,6 +1289,7 @@ export default function CombosPage() {
         onClose={() => setEditingCombo(null)}
         onSave={(data) => handleUpdate(editingCombo.id, data)}
         activeProviders={activeProviders}
+        providerConnections={providerConnections}
         comboConfigMode={comboConfigMode}
       />
 
@@ -1564,6 +1619,7 @@ function ComboCard({
   hasProxy,
   onToggle,
   providerNodes,
+  providerConnections,
   dragDisabled,
   isDragged,
   isDropTarget,
@@ -1701,6 +1757,7 @@ function ComboCard({
                     >
                       {formatComboEntryDisplay(entry, {
                         providerNodes,
+                        providerConnections,
                         includeConnection: true,
                         showFullEmails: emailsVisible,
                       })}
@@ -1925,7 +1982,15 @@ function TestResultsView({ results }) {
 // ─────────────────────────────────────────────
 // Combo Form Modal
 // ─────────────────────────────────────────────
-function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, comboConfigMode }) {
+function ComboFormModal({
+  isOpen,
+  combo,
+  onClose,
+  onSave,
+  activeProviders,
+  providerConnections = [],
+  comboConfigMode,
+}) {
   type CreateDraftSnapshot = {
     name: string;
     models: unknown[];
@@ -2097,11 +2162,6 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
   const selectedBuilderModel =
     selectedBuilderProvider?.models?.find((model) => model.id === builderModelId) || null;
   const selectedBuilderConnections = selectedBuilderProvider?.connections || [];
-  const selectedBuilderConnection =
-    builderConnectionId && builderConnectionId !== COMBO_BUILDER_AUTO_CONNECTION
-      ? selectedBuilderConnections.find((connection) => connection.id === builderConnectionId) ||
-        null
-      : null;
   const builderCandidateStep =
     selectedBuilderProvider && selectedBuilderModel
       ? buildPrecisionComboModelStep({
@@ -2109,7 +2169,6 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
           modelId: selectedBuilderModel.id,
           connectionId:
             builderConnectionId !== COMBO_BUILDER_AUTO_CONNECTION ? builderConnectionId : null,
-          connectionLabel: selectedBuilderConnection?.label || null,
         })
       : null;
   const builderHasDuplicate =
@@ -2421,7 +2480,6 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
       modelId: selectedBuilderModel.id,
       connectionId:
         builderConnectionId !== COMBO_BUILDER_AUTO_CONNECTION ? builderConnectionId : null,
-      connectionLabel: selectedBuilderConnection?.label || null,
     });
 
     if (hasExactModelStepDuplicate(models, nextStep)) {
@@ -2633,11 +2691,12 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
       return formatComboEntryDisplay(entry, {
         providerNodes,
         builderProviders,
+        providerConnections,
         includeConnection: true,
         showFullEmails: emailsVisible,
       });
     },
-    [builderProviders, emailsVisible, providerNodes]
+    [builderProviders, emailsVisible, providerConnections, providerNodes]
   );
 
   const handleMoveUp = (index) => {

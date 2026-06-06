@@ -132,7 +132,6 @@ function getStepTags(step: ComboStep): string[] {
 }
 
 function getStepLabel(step: ComboStep): string {
-  if (step.label) return step.label;
   if (step.kind === "combo-ref") return `Combo → ${step.comboName}`;
   return step.model;
 }

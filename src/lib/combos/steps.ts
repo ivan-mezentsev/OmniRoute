@@ -9,7 +9,6 @@ export interface ComboModelStep {
   providerId?: string | null;
   connectionId?: string | null;
   weight: number;
-  label?: string;
   tags?: string[];
 }
 
@@ -18,7 +17,6 @@ export interface ComboRefStep {
   kind: "combo-ref";
   comboName: string;
   weight: number;
-  label?: string;
 }
 
 export type ComboStep = ComboModelStep | ComboRefStep;
@@ -238,7 +236,6 @@ export function normalizeComboStep(
 
   const explicitId = toTrimmedString(value.id);
   const weight = toWeight(value.weight);
-  const label = toTrimmedString(value.label);
 
   if (value.kind === "combo-ref") {
     const comboRefName = toTrimmedString(value.comboName);
@@ -248,7 +245,6 @@ export function normalizeComboStep(
       kind: "combo-ref",
       comboName: comboRefName,
       weight,
-      ...(label ? { label } : {}),
     };
   }
 
@@ -267,7 +263,6 @@ export function normalizeComboStep(
       kind: "combo-ref",
       comboName: rawModel,
       weight,
-      ...(label ? { label } : {}),
     };
   }
 
@@ -287,7 +282,6 @@ export function normalizeComboStep(
     ...(providerId ? { providerId } : {}),
     ...(connectionId !== undefined ? { connectionId } : {}),
     weight,
-    ...(label ? { label } : {}),
     ...(tags && tags.length > 0 ? { tags } : {}),
   };
 }

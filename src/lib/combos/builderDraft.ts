@@ -36,6 +36,14 @@ function toTrimmedString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
+function slugifyDraftStepPart(value: string): string {
+  const slug = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug.length > 0 ? slug : "step";
+}
+
 export function parseQualifiedModel(
   value: unknown
 ): { providerId: string; modelId: string } | null {
@@ -60,26 +68,26 @@ export function buildPrecisionComboModelStep({
   providerId,
   modelId,
   connectionId = null,
-  connectionLabel,
   weight = 0,
 }: {
   providerId: string;
   modelId: string;
   connectionId?: string | null;
-  connectionLabel?: string | null;
   weight?: number;
 }): ComboModelStep {
   const normalizedProviderId = toTrimmedString(providerId) || "provider";
   const normalizedModelId = toTrimmedString(modelId) || "model";
   const normalizedConnectionId = toTrimmedString(connectionId);
-  const normalizedConnectionLabel = toTrimmedString(connectionLabel);
+
+  const model = `${normalizedProviderId}/${normalizedModelId}`;
+  const idSeed = normalizedConnectionId ? `${model}:${normalizedConnectionId}` : model;
 
   return {
+    id: `model-${slugifyDraftStepPart(idSeed)}`.slice(0, 200),
     kind: "model",
     providerId: normalizedProviderId,
-    model: `${normalizedProviderId}/${normalizedModelId}`,
+    model,
     ...(normalizedConnectionId ? { connectionId: normalizedConnectionId } : {}),
-    ...(normalizedConnectionLabel ? { label: normalizedConnectionLabel } : {}),
     weight: Number.isFinite(weight) ? Math.max(0, Math.min(100, Number(weight))) : 0,
   };
 }
