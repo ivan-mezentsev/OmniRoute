@@ -2421,7 +2421,9 @@ export const REGISTRY: Record<string, RegistryEntry> = {
 
   huggingchat: {
     id: "huggingchat",
-    alias: "hc",
+    // Distinct alias: "hc" belongs to the hackclub provider; huggingchat is
+    // addressed by its own id to avoid the alias collision.
+    alias: "huggingchat",
     format: "openai",
     executor: "huggingchat",
     baseUrl: "https://huggingface.co/chat/conversation",
@@ -3914,7 +3916,9 @@ export const REGISTRY: Record<string, RegistryEntry> = {
 
   "kimi-web": {
     id: "kimi-web",
-    alias: "kimi",
+    // Distinct alias: the primary "kimi" provider (dedicated KimiExecutor) keeps
+    // the short "kimi" alias; this web/cookie variant is addressed by its own id.
+    alias: "kimi-web",
     format: "openai",
     executor: "kimi-web",
     baseUrl: "https://kimi.moonshot.cn/api/chat",

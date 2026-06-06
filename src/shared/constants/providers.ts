@@ -432,7 +432,9 @@ export const WEB_COOKIE_PROVIDERS = {
   },
   huggingchat: {
     id: "huggingchat",
-    alias: "hc",
+    // Distinct alias: "hc" belongs to the hackclub provider; huggingchat is
+    // addressed by its own id to avoid the alias collision.
+    alias: "huggingchat",
     name: "HuggingChat (Free)",
     icon: "auto_awesome",
     color: "#FFD21E",
@@ -494,7 +496,9 @@ export const WEB_COOKIE_PROVIDERS = {
   },
   "kimi-web": {
     id: "kimi-web",
-    alias: "kimi",
+    // Distinct alias: the primary "kimi" provider keeps the short "kimi" alias;
+    // this web/cookie variant is addressed by its own id.
+    alias: "kimi-web",
     name: "Kimi Web (Moonshot AI)",
     icon: "auto_awesome",
     color: "#2563EB",
