@@ -22,8 +22,19 @@ type RawI18nConfig = {
 };
 
 const config = i18nConfig as RawI18nConfig;
+const uiLocaleCodes = config.uiOnly?.length
+  ? config.uiOnly
+  : config.locales.map((locale) => locale.code);
+const allLanguages = config.locales.map((entry) => ({
+  code: entry.code,
+  label: entry.label,
+  name: entry.name,
+  native: entry.native ?? entry.name,
+  english: entry.english ?? entry.name,
+  flag: entry.flag,
+}));
 
-export const LOCALES = config.locales.map((l) => l.code) as readonly string[];
+export const LOCALES = uiLocaleCodes as readonly string[];
 export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = config.default as Locale;
 
@@ -40,25 +51,22 @@ export const LANGUAGES: readonly {
   native: string;
   english: string;
   flag: string;
-}[] = config.locales.map((entry) => ({
-  code: entry.code as Locale,
-  label: entry.label,
-  name: entry.name,
-  native: entry.native ?? entry.name,
-  english: entry.english ?? entry.name,
-  flag: entry.flag,
-}));
+}[] = allLanguages
+  .filter((entry) => uiLocaleCodes.includes(entry.code))
+  .map((entry) => ({ ...entry, code: entry.code as Locale }));
 
-export const RTL_LOCALES: readonly Locale[] = config.rtl as readonly Locale[];
+export const RTL_LOCALES: readonly Locale[] = config.rtl.filter((code) =>
+  uiLocaleCodes.includes(code)
+) as readonly Locale[];
 
 export const LOCALE_COOKIE = "NEXT_LOCALE";
 
 // Convenience helpers --------------------------------------------------------
 
 /** Locales that the docs translation pipeline writes to (excludes the source). */
-export const DOCS_TARGET_LOCALES: readonly Locale[] = LANGUAGES.map((l) => l.code).filter(
+export const DOCS_TARGET_LOCALES: readonly string[] = allLanguages.map((l) => l.code).filter(
   (code) => !(config.docsExcluded ?? []).includes(code)
-) as readonly Locale[];
+);
 
 /** Lookup by code; falls back to the default locale entry if not found. */
 export function getLanguage(code: string) {

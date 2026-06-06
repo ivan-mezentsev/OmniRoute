@@ -2,22 +2,30 @@ import { describe, it } from "node:test";
 import assert from "node:assert";
 import fs from "node:fs";
 import path from "node:path";
+import { LOCALES, LANGUAGES, DEFAULT_LOCALE, RTL_LOCALES } from "../../src/i18n/config";
 
-describe("i18n pt-BR integrity", () => {
-  it("should be a valid JSON file", () => {
-    const ptPath = path.resolve("src/i18n/messages/pt-BR.json");
-    const content = fs.readFileSync(ptPath, "utf8");
-    const json = JSON.parse(content);
-    assert.strictEqual(typeof json, "object");
-    assert.ok(json.common);
-    assert.ok(json.settings);
+describe("i18n UI catalog", () => {
+  it("ships only the English UI messages file", () => {
+    const messagesDir = path.resolve("src/i18n/messages");
+    const files = fs.readdirSync(messagesDir).filter((file) => file.endsWith(".json")).sort();
+
+    assert.deepStrictEqual(files, ["en.json"]);
   });
 
-  it("should contain critical keys for the dashboard", () => {
-    const ptPath = path.resolve("src/i18n/messages/pt-BR.json");
-    const json = JSON.parse(fs.readFileSync(ptPath, "utf8"));
+  it("exposes English as the only UI locale", () => {
+    assert.deepStrictEqual([...LOCALES], ["en"]);
+    assert.deepStrictEqual(
+      LANGUAGES.map((language) => language.code),
+      ["en"]
+    );
+    assert.strictEqual(DEFAULT_LOCALE, "en");
+    assert.deepStrictEqual([...RTL_LOCALES], []);
+  });
 
-    // Critical keys we refactored
+  it("keeps English critical dashboard keys", () => {
+    const enPath = path.resolve("src/i18n/messages/en.json");
+    const json = JSON.parse(fs.readFileSync(enPath, "utf8"));
+
     assert.ok(json.settings.routingAntigravitySignatureDesc);
     assert.ok(json.agents.howToUseStep1);
     assert.ok(json.cache.loadingCacheAria);

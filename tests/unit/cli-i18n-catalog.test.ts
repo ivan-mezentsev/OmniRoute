@@ -7,9 +7,9 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..", "..");
+const LOCALES_DIR = join(ROOT, "bin", "cli", "locales");
 const require = createRequire(import.meta.url);
 const en = require("../../bin/cli/locales/en.json");
-const ptBR = require("../../bin/cli/locales/pt-BR.json");
 
 function flattenKeys(obj: Record<string, unknown>, prefix = ""): Set<string> {
   const keys = new Set<string>();
@@ -65,20 +65,18 @@ test("en.json contém todas as chaves usadas via t() nos comandos", () => {
   assert.deepEqual(missing, [], `Chaves faltando em en.json: ${missing.join(", ")}`);
 });
 
-test("pt-BR.json tem todas as seções top-level de en.json", () => {
-  const enTop = Object.keys(en as object);
-  const ptTop = new Set(Object.keys(ptBR as object));
-  const missing = enTop.filter((k) => !ptTop.has(k));
-  assert.deepEqual(missing, [], `Seções top-level faltando em pt-BR.json: ${missing.join(", ")}`);
+test("CLI locale catalog ships only en.json", () => {
+  const localeFiles = readdirSync(LOCALES_DIR).filter((file) => file.endsWith(".json")).sort();
+  assert.deepEqual(localeFiles, ["en.json"]);
 });
 
-test("i18n.mjs detecta locale por OMNIROUTE_LANG", async () => {
+test("i18n.mjs falls back to en for OMNIROUTE_LANG when no matching catalog exists", async () => {
   const { resetForTests, detectLocale } = await import("../../bin/cli/i18n.mjs");
   const orig = process.env.OMNIROUTE_LANG;
   process.env.OMNIROUTE_LANG = "pt-BR";
   resetForTests();
   const locale = detectLocale();
-  assert.equal(locale, "pt-BR");
+  assert.equal(locale, "en");
   if (orig === undefined) delete process.env.OMNIROUTE_LANG;
   else process.env.OMNIROUTE_LANG = orig;
   resetForTests();
@@ -114,11 +112,11 @@ test("t() retorna a chave quando não existe no catálogo", async () => {
   resetForTests();
 });
 
-test("t() usa pt-BR quando disponível", async () => {
+test("t() uses English fallback for removed non-English locales", async () => {
   const { resetForTests, t, setLocale } = await import("../../bin/cli/i18n.mjs");
   resetForTests();
   setLocale("pt-BR");
   const result = t("health.noServer");
-  assert.ok(result.includes("omniroute serve"), `Esperava mensagem pt-BR, obteve: ${result}`);
+  assert.equal(result, "Server not running. Start with: omniroute serve");
   resetForTests();
 });

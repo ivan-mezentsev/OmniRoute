@@ -140,8 +140,8 @@ async function translateString(englishValue, localeEntry, backend) {
 }
 
 // ---- Keys to translate -----------------------------------------------------
-// These 10 keys were added to en.json and pt-BR.json in the api-endpoints audit
-// but not propagated to other locales.
+// These 10 keys were added to the English UI catalog in the api-endpoints audit.
+// Non-English UI catalogs are not shipped; missing locale files are skipped below.
 const NEW_ENDPOINT_KEYS = {
   tierAll: "All tiers",
   tierAuth: "Auth",
@@ -165,8 +165,8 @@ async function main() {
     throw new Error("config/i18n.json: expected { locales: [] }");
   }
 
-  // Exclude English source + pt-BR (already has keys)
-  const SKIP = new Set(["en", "pt-BR"]);
+  // Exclude the English source catalog.
+  const SKIP = new Set(["en"]);
   let locales = config.locales.filter((l) => !SKIP.has(l.code));
   if (localeFilter && localeFilter.length > 0) {
     locales = locales.filter((l) => localeFilter.includes(l.code));
