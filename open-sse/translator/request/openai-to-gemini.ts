@@ -494,22 +494,16 @@ function openaiToGeminiBase(
     toolNameMap,
   });
 
-  // Support for Google Search grounding if requested via 'google_search' tool
-  const hasGoogleSearch = bodyTools?.some((t) => {
-    const fn = t.function as { name?: string } | undefined;
-    return t.type === "function" && (fn?.name === "google_search" || fn?.name === "googleSearch");
-  });
-
-  type ToolEntry = NonNullable<GeminiRequest["tools"]>[number];
-
+  // Pass client-provided tools through as function declarations without inspecting
+  // their names. Previously a tool named "google_search"/"googleSearch" was treated
+  // as a request for Google's built-in server-side search grounding, which silently
+  // injected a `{ googleSearch: {} }` built-in tool. That broke legitimate client
+  // tools (e.g. an MCP tool literally named "google_search") and triggered upstream
+  // 400 errors ("enable tool_config.include_server_side_tool_invocations to use
+  // Built-in tools with Function calling"). Client tools must be forwarded as-is.
   if (geminiTools && geminiTools.length > 0) {
     result.tools = geminiTools;
-    if (hasGoogleSearch) {
-      result.tools.push({ googleSearch: {} } as ToolEntry);
-    }
     result.toolConfig = { functionCallingConfig: { mode: "VALIDATED" } };
-  } else if (hasGoogleSearch) {
-    result.tools = [{ googleSearch: {} } as ToolEntry];
   }
 
   // Convert response_format to Gemini's responseMimeType/responseSchema
