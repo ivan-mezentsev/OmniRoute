@@ -58,6 +58,44 @@ function extractMessageText(content: unknown): string {
   return parts.join("\n").trim();
 }
 
+function extractSystemInstruction(body: JsonRecord, messages: JsonRecord[]): string {
+  const systemParts: string[] = [];
+
+  const directSystem = textValue(body.system);
+  if (directSystem.trim()) {
+    systemParts.push(directSystem.trim());
+  }
+
+  const directInstructions = textValue(body.instructions);
+  if (directInstructions.trim()) {
+    systemParts.push(directInstructions.trim());
+  }
+
+  for (const message of messages) {
+    let role = textValue(message.role) || "user";
+    if (role === "developer") role = "system";
+    if (role !== "system") continue;
+
+    const content = extractMessageText(message.content).trim();
+    if (content) {
+      systemParts.push(content);
+    }
+  }
+
+  return systemParts.join("\n\n").trim();
+}
+
+function buildGeminiWebPrompt(systemInstruction: string, prompt: string): string {
+  const normalizedPrompt = prompt.trim();
+  const normalizedSystemInstruction = systemInstruction.trim();
+
+  if (!normalizedSystemInstruction) {
+    return normalizedPrompt;
+  }
+
+  return [`[System Instructions]`, normalizedSystemInstruction, "", normalizedPrompt].join("\n").trim();
+}
+
 function formatChatCompletion(content: string, model: string, finishReason = "stop") {
   return {
     id: `chatcmpl-${Date.now()}`,
@@ -111,9 +149,15 @@ export class GeminiWebExecutor extends BaseExecutor {
     const messages = Array.isArray(bodyObj.messages)
       ? bodyObj.messages.map((message) => asRecord(message))
       : [];
+    const systemInstruction = extractSystemInstruction(bodyObj, messages);
     const lastUserMessage = messages.filter((message) => message.role === "user").pop();
-    const prompt = extractMessageText(lastUserMessage?.content).trim();
+    const userPrompt = extractMessageText(lastUserMessage?.content).trim();
     const requestedModel = textValue(bodyObj.model) || input.model;
+    if (!userPrompt) {
+      return makeErrorResult(400, "No user message found", body, GEMINI_WEB_APP_URL);
+    }
+
+    const prompt = buildGeminiWebPrompt(systemInstruction, userPrompt);
     const cookieHeader = buildGeminiWebCookieHeader(
       credentials?.apiKey || credentials?.accessToken || ""
     );
@@ -125,10 +169,6 @@ export class GeminiWebExecutor extends BaseExecutor {
         body,
         GEMINI_WEB_APP_URL
       );
-    }
-
-    if (!prompt) {
-      return makeErrorResult(400, "No user message found", body, GEMINI_WEB_APP_URL);
     }
 
     try {
