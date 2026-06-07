@@ -2,6 +2,11 @@
 
 LTS and fork-specific release history.
 
+## v3.8.6-5 — 2026-06-07
+
+- feat(gemini-web): implement Gemini Web model discovery and filtering
+- feat(gemini-web): enhance GeminiWebExecutor without playwright for speed RPC handling
+
 ## v3.8.6-4 — 2026-06-07
 
 - feat(dashboard): fix topology recency handling and update status events
