@@ -12,6 +12,7 @@ import { AI_PROVIDERS, NOAUTH_PROVIDERS, OAUTH_PROVIDERS } from "@/shared/consta
 import { useNotificationStore } from "@/store/notificationStore";
 import { copyToClipboard } from "@/shared/utils/clipboard";
 import { useIsElectron, useOpenExternal } from "@/shared/hooks/useElectron";
+import { resolveTopologyRecency } from "../home/topologyRecency";
 
 const ProviderTopology = dynamic(() => import("../home/ProviderTopology"), { ssr: false });
 const ProviderQuotaWidget = dynamic(() => import("../home/ProviderQuotaWidget"), { ssr: false });
@@ -117,6 +118,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
   const [selectedProvider, setSelectedProvider] = useState(null);
   const [providerMetrics, setProviderMetrics] = useState<Record<string, ProviderMetricSummary>>({});
   const [activeRequests, setActiveRequests] = useState<ActiveRequestSummary[]>([]);
+  const [topologyNow, setTopologyNow] = useState(() => Date.now());
 
   const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
   const [updating, setUpdating] = useState(false);
@@ -152,7 +154,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
       url: `https://github.com/diegosouzapw/OmniRoute/releases/tag/v${cleanLatest}`,
       desc: `A new version of the OmniRoute desktop app is available. Please download the respective app format for your system to update (current: v${versionInfo?.current || ""}).`,
     };
-  }, [platform, versionInfo?.latest, versionInfo?.current]);
+  }, [platform, versionInfo]);
 
   // Electron internal auto-updater state and listeners
   const [electronUpdateStatus, setElectronUpdateStatus] = useState<{
@@ -273,6 +275,12 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
   }, [fetchData]);
 
   useEffect(() => {
+    if (Object.keys(providerMetrics).length === 0) return;
+    const id = setInterval(() => setTopologyNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [providerMetrics]);
+
+  useEffect(() => {
     let cancelled = false;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let controller: AbortController | null = null;
@@ -291,6 +299,8 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
           if (!cancelled) {
             setActiveRequests(Array.isArray(data.activeRequests) ? data.activeRequests : []);
           }
+        } else if (!cancelled) {
+          setActiveRequests([]);
         }
 
         if (metricsRes.ok) {
@@ -494,27 +504,8 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
   );
 
   const { lastProvider, errorProvider } = useMemo(() => {
-    let recentProvider = "";
-    let recentTimestamp = 0;
-    let recentErrorProvider = "";
-    let recentErrorTimestamp = 0;
-
-    for (const [provider, metrics] of Object.entries(providerMetrics)) {
-      const requestTimestamp = metrics.lastRequestAt ? Date.parse(metrics.lastRequestAt) : 0;
-      if (Number.isFinite(requestTimestamp) && requestTimestamp > recentTimestamp) {
-        recentProvider = normalizeProviderId(provider);
-        recentTimestamp = requestTimestamp;
-      }
-
-      const errorTimestamp = metrics.lastErrorAt ? Date.parse(metrics.lastErrorAt) : 0;
-      if (Number.isFinite(errorTimestamp) && errorTimestamp > recentErrorTimestamp) {
-        recentErrorProvider = normalizeProviderId(provider);
-        recentErrorTimestamp = errorTimestamp;
-      }
-    }
-
-    return { lastProvider: recentProvider, errorProvider: recentErrorProvider };
-  }, [providerMetrics]);
+    return resolveTopologyRecency(providerMetrics, normalizeProviderId, { now: topologyNow });
+  }, [providerMetrics, topologyNow]);
 
   const pollBackgroundUpdate = useCallback(
     async ({

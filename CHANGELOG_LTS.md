@@ -2,6 +2,10 @@
 
 LTS and fork-specific release history.
 
+## v3.8.6-4 — 2026-06-07
+
+- feat(dashboard): fix topology recency handling and update status events
+
 ## v3.8.6-3 — 2026-06-07
 
 - feat(locales):  keep i18n only

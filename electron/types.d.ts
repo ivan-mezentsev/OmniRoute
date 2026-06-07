@@ -21,12 +21,24 @@ export interface ServerStatus {
   port: number;
 }
 
+export interface UpdateStatusEvent {
+  status: "idle" | "checking" | "available" | "not-available" | "downloading" | "downloaded" | "error";
+  version?: string;
+  percent?: number;
+  transferred?: number;
+  total?: number;
+  message?: string;
+}
+
 export interface ElectronAPI {
   // ── Invoke (async) ─────────────────────────────────────
   getAppInfo(): Promise<AppInfo>;
   openExternal(url: string): Promise<void>;
   getDataDir(): Promise<string>;
   restartServer(): Promise<{ success: boolean }>;
+  checkForUpdates(): Promise<void>;
+  downloadUpdate(): Promise<void>;
+  installUpdate(): Promise<void>;
 
   // ── Send (fire-and-forget) ─────────────────────────────
   minimizeWindow(): void;
@@ -36,6 +48,7 @@ export interface ElectronAPI {
   // ── Receive (returns disposer for cleanup) ─────────────
   onServerStatus(callback: (data: ServerStatus) => void): () => void;
   onPortChanged(callback: (port: number) => void): () => void;
+  onUpdateStatus(callback: (data: UpdateStatusEvent) => void): () => void;
 
   // ── Static Properties ──────────────────────────────────
   isElectron: boolean;
