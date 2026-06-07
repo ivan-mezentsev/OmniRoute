@@ -1,3 +1,5 @@
+import { randomBytes, randomUUID } from "node:crypto";
+
 type JsonRecord = Record<string, unknown>;
 
 type GeminiWebRawModel = {
@@ -20,6 +22,15 @@ export type GeminiWebUserStatus = {
   models: GeminiWebRawModel[];
   tierFlags: number[];
   capFlags: number[];
+};
+
+export type GeminiWebResolvedModel = {
+  id: string;
+  name: string;
+  modelId: string;
+  selector: number;
+  description?: string;
+  supportsThinking?: boolean;
 };
 
 export const GEMINI_WEB_BASE_URL = "https://gemini.google.com";
@@ -137,6 +148,99 @@ export function buildGeminiWebBatchHeaders(cookieHeader: string): Record<string,
     "User-Agent": GEMINI_WEB_USER_AGENT,
     "X-Same-Domain": "1",
   };
+}
+
+export function buildGeminiWebModelHeader(modelId: string, selector = 1): Record<string, string> {
+  const resolvedSelector = Number.isFinite(selector) && selector > 0 ? selector : 1;
+  return {
+    "x-goog-ext-525001261-jspb": `[1,null,null,null,"${modelId}",null,null,0,[4,5,6,8],null,null,2,null,null,${resolvedSelector},1,"FDC4D579-7A5D-4C69-A864-7188BDCFC8FF"]`,
+    "x-goog-ext-73010989-jspb": "[0]",
+    "x-goog-ext-73010990-jspb": "[0,0,0]",
+  };
+}
+
+export function buildGeminiWebStreamGenerateUrl({
+  accountPath = "",
+  language,
+  buildLabel,
+  sessionId,
+}: {
+  accountPath?: string;
+  language?: string;
+  buildLabel?: string;
+  sessionId?: string;
+}) {
+  const normalizedAccountPath = accountPath.startsWith("/u/") ? accountPath : "";
+  const params = new URLSearchParams();
+  params.set("_reqid", `${10000 + Math.floor(Math.random() * 90000)}`);
+  params.set("rt", "c");
+  params.set("hl", language || "en");
+  params.set("pageId", "none");
+  if (buildLabel) params.set("bl", buildLabel);
+  if (sessionId) params.set("f.sid", sessionId);
+  return `${GEMINI_WEB_BASE_URL}${normalizedAccountPath}/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate?${params.toString()}`;
+}
+
+export function buildGeminiWebStreamHeaders({
+  cookieHeader,
+  modelHeader,
+  requestUuid,
+}: {
+  cookieHeader: string;
+  modelHeader: Record<string, string>;
+  requestUuid: string;
+}): Record<string, string> {
+  return {
+    ...buildGeminiWebBatchHeaders(cookieHeader),
+    ...modelHeader,
+    "x-goog-ext-525005358-jspb": `["${requestUuid}",1]`,
+  };
+}
+
+export function buildGeminiWebStreamGenerateBody({
+  accessToken,
+  prompt,
+  language,
+  modelSelector,
+}: {
+  accessToken: string;
+  prompt: string;
+  language?: string;
+  modelSelector?: number;
+}): { body: string; requestUuid: string } {
+  const requestUuid = randomUUID();
+  const hexUuid = randomBytes(16).toString("hex");
+  const entropyToken = `!${randomBytes(2600).toString("base64url")}`;
+  const selector = Number.isFinite(modelSelector) && Number(modelSelector) > 0 ? Number(modelSelector) : 1;
+
+  const innerRequest = new Array(81).fill(null);
+  innerRequest[0] = [prompt, 0, null, null, null, null, 0];
+  innerRequest[1] = [language || "en"];
+  innerRequest[2] = ["", "", "", null, null, null, null, null, null, ""];
+  innerRequest[3] = entropyToken;
+  innerRequest[4] = hexUuid;
+  innerRequest[6] = [0];
+  innerRequest[7] = 1;
+  innerRequest[10] = 1;
+  innerRequest[11] = 0;
+  innerRequest[17] = [[0]];
+  innerRequest[18] = 0;
+  innerRequest[27] = 1;
+  innerRequest[30] = [4];
+  innerRequest[41] = [1];
+  innerRequest[53] = 0;
+  innerRequest[59] = requestUuid;
+  innerRequest[61] = [];
+  innerRequest[68] = 1;
+  innerRequest[79] = selector;
+  innerRequest[80] = 1;
+
+  const outerRequest = [null, JSON.stringify(innerRequest)];
+  const form = new URLSearchParams();
+  form.set("at", accessToken);
+  form.set("f.req", JSON.stringify(outerRequest));
+
+  return { body: form.toString(), requestUuid };
 }
 
 export function stripGeminiWebResponsePrefix(responseText: string): string {
@@ -332,4 +436,98 @@ export function normalizeGeminiWebDiscoveredModels(
   }
 
   return Array.from(deduped.values());
+}
+
+export function resolveGeminiWebRequestedModel(
+  requestedModelId: string | null | undefined,
+  userStatus: GeminiWebUserStatus
+): GeminiWebResolvedModel | null {
+  const candidates = userStatus.models.map((model) => {
+    const id = normalizeGeminiWebModelId(model);
+    return {
+      id,
+      name: humanizeGeminiWebModelName(id, model.displayName),
+      modelId: model.modelId,
+      selector: model.selector || 1,
+      ...(model.description ? { description: model.description } : {}),
+      ...(/thinking/i.test(model.displayName) || /thinking/i.test(id)
+        ? { supportsThinking: true }
+        : {}),
+    } satisfies GeminiWebResolvedModel;
+  });
+
+  if (candidates.length === 0) return null;
+
+  const requested = toNonEmptyString(requestedModelId)?.toLowerCase();
+  if (!requested) return candidates[0];
+
+  return (
+    candidates.find((model) => model.id === requested) ||
+    candidates.find((model) => model.name.toLowerCase() === requested) ||
+    candidates[0]
+  );
+}
+
+function extractGeminiWebEnvelopeErrorCode(envelope: unknown[]): number {
+  const unwrap = (value: unknown[]): unknown[] => {
+    let current = value;
+    while (current.length === 1 && Array.isArray(current[0])) {
+      current = current[0] as unknown[];
+    }
+    return current;
+  };
+
+  const unwrapped = unwrap(envelope);
+  const direct = Array.isArray(unwrapped[5]) ? unwrapped[5] : [];
+  return typeof direct[0] === "number" ? Number(direct[0]) : 0;
+}
+
+function parseGeminiWebStreamEnvelope(envelope: unknown[]): { text: string; done: boolean } | null {
+  let unwrapped = envelope;
+  while (unwrapped.length === 1 && Array.isArray(unwrapped[0])) {
+    unwrapped = unwrapped[0] as unknown[];
+  }
+  if (unwrapped.length < 3 || typeof unwrapped[2] !== "string") return null;
+
+  const content = JSON.parse(unwrapped[2]) as unknown[];
+  const candidates = arrayAt(content, 4) || [];
+  let text = "";
+
+  if (candidates.length > 0 && Array.isArray(candidates[0])) {
+    const candidate = candidates[0] as unknown[];
+    text = firstString(stringAt(candidate, 1, 0), stringAt(candidate, 22, 0));
+    if (text.startsWith("http://googleusercontent.com/")) text = stringAt(candidate, 22, 0);
+  }
+
+  const done = Boolean(stringAt(content, 25)) || Boolean(asRecord(content[2])["26"]);
+  return { text, done };
+}
+
+export function parseGeminiWebStreamResponse(responseText: string): {
+  text: string;
+  errorCode: number;
+} {
+  let lastText = "";
+
+  for (const frame of parseGeminiWebLengthPrefixedFrames(responseText)) {
+    let envelope: unknown;
+    try {
+      envelope = JSON.parse(frame);
+    } catch {
+      continue;
+    }
+    if (!Array.isArray(envelope)) continue;
+
+    const errorCode = extractGeminiWebEnvelopeErrorCode(envelope);
+    if (errorCode !== 0) {
+      return { text: lastText, errorCode };
+    }
+
+    const parsed = parseGeminiWebStreamEnvelope(envelope);
+    if (!parsed) continue;
+    if (parsed.text) lastText = parsed.text;
+    if (parsed.done) break;
+  }
+
+  return { text: lastText, errorCode: 0 };
 }

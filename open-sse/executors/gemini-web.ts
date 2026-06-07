@@ -1,41 +1,62 @@
 /**
- * GeminiWebExecutor — Gemini Web Session Provider
+ * GeminiWebExecutor — Gemini Web session provider via consumer HTTP RPCs.
  *
- * Routes requests through Google Gemini's web interface using browser
- * cookies + Playwright automation. Translates between OpenAI chat
- * completions format and Gemini's web UI.
- *
- * Auth: Cookie-based (__Secure-1PSID + __Secure-1PSIDTS from gemini.google.com)
- * Method: Playwright browser automation
- *
- * Note: Streaming is pseudo-streaming — waits for full Gemini response then
- * sends as single SSE chunk. Gemini's StreamGenerate endpoint returns complete
- * responses, not chunked streams.
+ * Routes requests through Gemini Web without browser automation by using the
+ * same cookie-authenticated bootstrap + GetUserStatus + StreamGenerate flow
+ * that powers the web application.
  */
 
 import { BaseExecutor, type ExecuteInput } from "./base.ts";
-import { sanitizeErrorMessage } from "../utils/error.ts";
+import { makeExecutorErrorResult as makeErrorResult } from "../utils/error.ts";
+import {
+  buildGeminiWebBatchHeaders,
+  buildGeminiWebBatchUrl,
+  buildGeminiWebBootstrapHeaders,
+  buildGeminiWebCookieHeader,
+  buildGeminiWebGetUserStatusBody,
+  buildGeminiWebModelHeader,
+  buildGeminiWebStreamGenerateBody,
+  buildGeminiWebStreamGenerateUrl,
+  buildGeminiWebStreamHeaders,
+  extractGeminiWebAccountPath,
+  extractGeminiWebBootstrap,
+  extractGeminiWebRpcBody,
+  GEMINI_WEB_APP_URL,
+  parseGeminiWebStreamResponse,
+  parseGeminiWebUserStatus,
+  resolveGeminiWebRequestedModel,
+} from "../services/geminiWebModels.ts";
 
-// ─── Constants ──────────────────────────────────────────────────────────────
+type JsonRecord = Record<string, unknown>;
 
-const GEMINI_URL = "https://gemini.google.com/app";
-const GEMINI_USER_AGENT =
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36";
+const encoder = new TextEncoder();
 
-// ─── Types ──────────────────────────────────────────────────────────────────
-
-interface GeminiMessage {
-  role: string;
-  content: string;
+function asRecord(value: unknown): JsonRecord {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
 }
 
-interface GeminiRequestBody {
-  messages: GeminiMessage[];
-  model?: string;
-  stream?: boolean;
+function textValue(value: unknown): string {
+  return typeof value === "string" ? value : "";
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+function extractMessageText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+
+  const parts: string[] = [];
+  for (const part of content) {
+    if (typeof part === "string") {
+      parts.push(part);
+      continue;
+    }
+
+    const record = asRecord(part);
+    const text = textValue(record.text) || textValue(asRecord(record.text).content);
+    if (text) parts.push(text);
+  }
+
+  return parts.join("\n").trim();
+}
 
 function formatChatCompletion(content: string, model: string, finishReason = "stop") {
   return {
@@ -58,212 +79,195 @@ function formatStreamChunk(content: string, model: string, finishReason: string 
   };
 }
 
-/**
- * Parse cookie string, stripping attributes (Path, Domain, Expires, etc.)
- * Input: full browser cookie string or just "name=value; name2=value2"
- * Output: array of { name, value } pairs
- */
-function parseCookies(raw: string): Array<{ name: string; value: string }> {
-  return raw
-    .split(";")
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .map((part) => {
-      const eqIdx = part.indexOf("=");
-      if (eqIdx === -1) return null;
-      const name = part.substring(0, eqIdx).trim();
-      const value = part.substring(eqIdx + 1).trim();
-      // Skip cookie attributes that aren't name=value pairs
-      if (!name || !value) return null;
-      const lowerName = name.toLowerCase();
-      if (
-        ["path", "domain", "expires", "max-age", "secure", "httponly", "samesite"].includes(
-          lowerName
-        )
-      ) {
-        return null;
-      }
-      return { name, value };
-    })
-    .filter(Boolean) as Array<{ name: string; value: string }>;
+function sse(data: unknown): Uint8Array {
+  return encoder.encode(`data: ${JSON.stringify(data)}\n\n`);
 }
 
-/**
- * Parse Gemini StreamGenerate response text.
- *
- * Response format:
- *   )]}'
- *   <length>
- *   [["wrb.fr", null, "<JSON string>"]]
- *   <length>
- *   [["wrb.fr", null, "<JSON string>"]]
- *
- * The JSON string contains nested array: inner[4][0][1] = ["text chunks"]
- * We return text from the first wrb.fr line that contains content.
- */
-function parseStreamResponse(raw: string): string {
-  const lines = raw.split("\n");
-  for (const line of lines) {
-    if (!line.trim() || line.trim() === ")]}'" || /^\d+$/.test(line.trim())) continue;
-    try {
-      const arr = JSON.parse(line);
-      if (!Array.isArray(arr) || !arr[0] || arr[0][0] !== "wrb.fr") continue;
-      const payload = arr[0]?.[2];
-      if (typeof payload !== "string") continue;
-      const inner = JSON.parse(payload);
-      // Defensive: check each level before accessing
-      const responseArray = inner?.[4]?.[0]?.[1];
-      if (!Array.isArray(responseArray)) continue;
-      const text = responseArray.filter((c: unknown) => typeof c === "string").join("");
-      if (text) return text;
-    } catch {
-      // Skip unparseable lines
-    }
-  }
-  return "";
+function getErrorSnippet(text: string): string {
+  const normalized = text.trim();
+  return normalized.length > 200 ? `${normalized.slice(0, 200)}...` : normalized;
 }
 
-// ─── Executor ───────────────────────────────────────────────────────────────
+function looksLikeGeminiAuthPage(responseUrl: string, html: string): boolean {
+  const url = responseUrl.toLowerCase();
+  const text = html.toLowerCase();
+  return (
+    url.includes("accounts.google.com") ||
+    url.includes("/signin") ||
+    text.includes("accounts.google.com") ||
+    text.includes("sign in") ||
+    text.includes("log in")
+  );
+}
 
 export class GeminiWebExecutor extends BaseExecutor {
   constructor() {
-    super("gemini-web", { id: "gemini-web", baseUrl: GEMINI_URL });
+    super("gemini-web", { id: "gemini-web", baseUrl: GEMINI_WEB_APP_URL });
   }
 
   async execute(input: ExecuteInput) {
-    const { model, body, stream, credentials, signal } = input;
-    const requestBody = body as GeminiRequestBody;
+    const { body, credentials, signal, stream: wantStream } = input;
+    const bodyObj = asRecord(body);
+    const messages = Array.isArray(bodyObj.messages)
+      ? bodyObj.messages.map((message) => asRecord(message))
+      : [];
+    const lastUserMessage = messages.filter((message) => message.role === "user").pop();
+    const prompt = extractMessageText(lastUserMessage?.content).trim();
+    const requestedModel = textValue(bodyObj.model) || input.model;
+    const cookieHeader = buildGeminiWebCookieHeader(
+      credentials?.apiKey || credentials?.accessToken || ""
+    );
 
-    const cookie = credentials.apiKey || "";
-    if (!cookie) {
-      return {
-        response: new Response(JSON.stringify({ error: "Missing Gemini cookies" }), {
-          status: 401,
-          headers: { "Content-Type": "application/json" },
-        }),
-        url: GEMINI_URL,
-        headers: {},
-        transformedBody: body,
-      };
+    if (!cookieHeader) {
+      return makeErrorResult(
+        401,
+        "Gemini Web requires __Secure-1PSID cookies or a full Cookie header from gemini.google.com.",
+        body,
+        GEMINI_WEB_APP_URL
+      );
     }
-
-    const messages = requestBody.messages || [];
-    const lastUserMsg = messages.filter((m) => m.role === "user").pop();
-    const prompt = lastUserMsg?.content || "";
 
     if (!prompt) {
-      return {
-        response: new Response(JSON.stringify({ error: "No user message found" }), {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        }),
-        url: GEMINI_URL,
-        headers: {},
-        transformedBody: body,
-      };
+      return makeErrorResult(400, "No user message found", body, GEMINI_WEB_APP_URL);
     }
 
-    let browser: any = null;
-    let abortBrowser: (() => void) | null = null;
     try {
-      if (signal?.aborted) {
-        throw signal.reason instanceof Error ? signal.reason : new Error("Request aborted");
-      }
-      const { chromium } = await import("playwright");
-      browser = await chromium.launch({ headless: true });
-      abortBrowser = () => {
-        void browser?.close().catch(() => {});
-      };
-      signal?.addEventListener("abort", abortBrowser, { once: true });
-
-      const context = await browser.newContext({ userAgent: GEMINI_USER_AGENT });
-
-      // Parse cookies — strips attributes like Path, Domain, Expires
-      const cookiePairs = parseCookies(cookie);
-      await context.addCookies(
-        cookiePairs.map(({ name, value }) => ({
-          name,
-          value,
-          domain: ".google.com",
-          path: "/",
-          secure: true,
-        }))
-      );
-
-      const page = await context.newPage();
-
-      // Capture first StreamGenerate response
-      let responseText = "";
-      let captured = false;
-      const responsePromise = new Promise<void>((resolve) => {
-        page.on("response", async (resp: any) => {
-          if (captured || !resp.url().includes("StreamGenerate")) return;
-          captured = true;
-          try {
-            const raw = await resp.text();
-            responseText = parseStreamResponse(raw);
-          } catch {
-            /* ignore */
-          }
-          resolve();
-        });
+      const bootstrapResponse = await fetch(GEMINI_WEB_APP_URL, {
+        method: "GET",
+        headers: buildGeminiWebBootstrapHeaders(cookieHeader),
+        signal: signal || undefined,
       });
 
-      await page.goto(GEMINI_URL, { waitUntil: "domcontentloaded", timeout: 20000 });
-      if (signal?.aborted) {
-        throw signal.reason instanceof Error ? signal.reason : new Error("Request aborted");
+      if (!bootstrapResponse.ok) {
+        return makeErrorResult(
+          bootstrapResponse.status,
+          `Gemini Web bootstrap failed: ${bootstrapResponse.status}`,
+          body,
+          GEMINI_WEB_APP_URL
+        );
       }
-      await page.waitForTimeout(3000);
 
-      // Type and send message
-      const inputEl = await page.waitForSelector(".ql-editor, [contenteditable='true']", {
-        timeout: 10000,
+      const bootstrapAccountPath = extractGeminiWebAccountPath(bootstrapResponse.url);
+      const bootstrapHtml = await bootstrapResponse.text();
+      const bootstrap = extractGeminiWebBootstrap(bootstrapHtml);
+      if (!bootstrap?.accessToken) {
+        const authLikely = looksLikeGeminiAuthPage(bootstrapResponse.url, bootstrapHtml);
+        return makeErrorResult(
+          authLikely ? 401 : 502,
+          authLikely
+            ? "Failed to extract Gemini Web bootstrap tokens. Your Gemini Web cookies may be invalid or expired."
+            : "Failed to extract Gemini Web bootstrap tokens. Gemini returned an unexpected bootstrap page.",
+          body,
+          bootstrapResponse.url || GEMINI_WEB_APP_URL
+        );
+      }
+
+      const modelsUrl = buildGeminiWebBatchUrl({
+        language: bootstrap.language,
+        buildLabel: bootstrap.buildLabel,
+        sessionId: bootstrap.sessionId,
+        accountPath: bootstrapAccountPath,
+        sourcePath: `${bootstrapAccountPath || ""}/app` || "/app",
       });
-      await inputEl.click();
-      await page.keyboard.type(prompt, { delay: 10 });
-      await page.waitForTimeout(300);
-      await page.keyboard.press("Enter");
+      const modelsResponse = await fetch(modelsUrl, {
+        method: "POST",
+        headers: buildGeminiWebBatchHeaders(cookieHeader),
+        body: buildGeminiWebGetUserStatusBody(bootstrap.accessToken),
+        signal: signal || undefined,
+      });
 
-      // Wait for response or timeout
-      await Promise.race([responsePromise, page.waitForTimeout(30000)]);
-      if (signal?.aborted) {
-        throw signal.reason instanceof Error ? signal.reason : new Error("Request aborted");
+      if (!modelsResponse.ok) {
+        return makeErrorResult(
+          modelsResponse.status,
+          `Gemini Web model discovery failed: ${modelsResponse.status}`,
+          body,
+          modelsUrl
+        );
       }
 
-      if (!responseText) {
-        return {
-          response: new Response(JSON.stringify({ error: "No response from Gemini" }), {
-            status: 502,
-            headers: { "Content-Type": "application/json" },
-          }),
-          url: GEMINI_URL,
-          headers: {},
-          transformedBody: body,
-        };
+      const rpcPayload = extractGeminiWebRpcBody(await modelsResponse.text());
+      if (!rpcPayload) {
+        return makeErrorResult(502, "Gemini Web model RPC payload missing", body, modelsUrl);
       }
 
-      const modelId = model || "gemini-2.5-pro";
+      const userStatus = parseGeminiWebUserStatus(rpcPayload.body);
+      if (rpcPayload.rejectCode === 1016 || userStatus.statusCode === 1016) {
+        return makeErrorResult(401, "Invalid or expired Gemini Web cookies", body, modelsUrl);
+      }
 
-      if (stream) {
-        // Pseudo-streaming: send complete response as single SSE chunk
-        // Gemini's StreamGenerate returns complete responses, not chunked streams
-        const encoder = new TextEncoder();
-        const readable = new ReadableStream({
+      const resolvedModel = resolveGeminiWebRequestedModel(requestedModel, userStatus);
+      if (!resolvedModel) {
+        return makeErrorResult(502, "Gemini Web returned no available models", body, modelsUrl);
+      }
+
+      const streamUrl = buildGeminiWebStreamGenerateUrl({
+        language: bootstrap.language,
+        buildLabel: bootstrap.buildLabel,
+        sessionId: bootstrap.sessionId,
+        accountPath: bootstrapAccountPath,
+      });
+      const { body: streamBody, requestUuid } = buildGeminiWebStreamGenerateBody({
+        accessToken: bootstrap.accessToken,
+        prompt,
+        language: bootstrap.language,
+        modelSelector: resolvedModel.selector,
+      });
+      const streamHeaders = buildGeminiWebStreamHeaders({
+        cookieHeader,
+        modelHeader: buildGeminiWebModelHeader(resolvedModel.modelId, resolvedModel.selector),
+        requestUuid,
+      });
+
+      const upstream = await fetch(streamUrl, {
+        method: "POST",
+        headers: streamHeaders,
+        body: streamBody,
+        signal: signal || undefined,
+      });
+
+      if (!upstream.ok) {
+        const errorText = await upstream.text().catch(() => "");
+        return makeErrorResult(
+          upstream.status,
+          `Gemini Web StreamGenerate failed: ${upstream.status}${errorText ? ` ${getErrorSnippet(errorText)}` : ""}`,
+          body,
+          streamUrl
+        );
+      }
+
+      const parsed = parseGeminiWebStreamResponse(await upstream.text());
+      if (parsed.errorCode === 1052) {
+        return makeErrorResult(
+          409,
+          `Gemini Web model unavailable: ${resolvedModel.id}`,
+          body,
+          streamUrl
+        );
+      }
+      if (parsed.errorCode !== 0) {
+        return makeErrorResult(
+          502,
+          `Gemini Web returned envelope error ${parsed.errorCode}`,
+          body,
+          streamUrl
+        );
+      }
+      if (!parsed.text) {
+        return makeErrorResult(502, "No response from Gemini Web", body, streamUrl);
+      }
+
+      if (wantStream) {
+        const stream = new ReadableStream<Uint8Array>({
           start(controller) {
-            controller.enqueue(
-              encoder.encode(
-                `data: ${JSON.stringify(formatStreamChunk(responseText, modelId))}\n\n`
-              )
-            );
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify(formatStreamChunk("", modelId, "stop"))}\n\n`)
-            );
+            controller.enqueue(sse(formatStreamChunk(parsed.text, resolvedModel.id)));
+            controller.enqueue(sse(formatStreamChunk("", resolvedModel.id, "stop")));
             controller.enqueue(encoder.encode("data: [DONE]\n\n"));
             controller.close();
           },
         });
+
         return {
-          response: new Response(readable, {
+          response: new Response(stream, {
             status: 200,
             headers: {
               "Content-Type": "text/event-stream",
@@ -271,43 +275,32 @@ export class GeminiWebExecutor extends BaseExecutor {
               Connection: "keep-alive",
             },
           }),
-          url: GEMINI_URL,
-          headers: {},
+          url: streamUrl,
+          headers: streamHeaders,
           transformedBody: body,
         };
       }
 
       return {
-        response: new Response(JSON.stringify(formatChatCompletion(responseText, modelId)), {
+        response: new Response(JSON.stringify(formatChatCompletion(parsed.text, resolvedModel.id)), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }),
-        url: GEMINI_URL,
-        headers: {},
+        url: streamUrl,
+        headers: streamHeaders,
         transformedBody: body,
       };
     } catch (error) {
-      return {
-        response: new Response(
-          JSON.stringify({
-            error: sanitizeErrorMessage(error instanceof Error ? error.message : "Unknown error"),
-          }),
-          { status: 500, headers: { "Content-Type": "application/json" } }
-        ),
-        url: GEMINI_URL,
-        headers: {},
-        transformedBody: body,
-      };
-    } finally {
-      if (abortBrowser) signal?.removeEventListener("abort", abortBrowser);
-      // Always close browser to prevent resource leaks
-      if (browser) {
-        try {
-          await browser.close();
-        } catch {
-          /* ignore close errors */
-        }
+      if (signal?.aborted) {
+        return makeErrorResult(499, "Request aborted", body, GEMINI_WEB_APP_URL);
       }
+
+      return makeErrorResult(
+        500,
+        error instanceof Error ? error.message : "Unknown Gemini Web error",
+        body,
+        GEMINI_WEB_APP_URL
+      );
     }
   }
 }
