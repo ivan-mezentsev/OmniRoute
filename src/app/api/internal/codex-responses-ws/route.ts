@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { CodexExecutor } from "@omniroute/open-sse/executors/codex.ts";
+import { normalizeCodexSessionId } from "@omniroute/open-sse/config/codexClient.ts";
+import { createCodexClientIdentity } from "@omniroute/open-sse/config/codexIdentity.ts";
 import { getApiKeyMetadata } from "@/lib/db/apiKeys";
 import { authorizeWebSocketHandshake, extractWsTokenFromRequest } from "@/lib/ws/handshake";
 import { getModelInfo } from "@/sse/services/model";
@@ -13,6 +15,9 @@ const CODEX_RESPONSES_WS_URL = "wss://chatgpt.com/backend-api/codex/responses";
 const executor = new CodexExecutor();
 
 type JsonRecord = Record<string, unknown>;
+type CredentialsWithProviderData = {
+  providerSpecificData?: Record<string, unknown> | null;
+};
 
 const bridgePayloadSchema = z
   .object({
@@ -89,6 +94,134 @@ function normalizeUpstreamHeaders(headers: Record<string, string>): Record<strin
   return result;
 }
 
+export function getCodexWsBridgePromptCacheSessionId(body: JsonRecord): string | null {
+  return (
+    normalizeCodexSessionId(body.prompt_cache_key) ||
+    normalizeCodexSessionId(body.session_id) ||
+    normalizeCodexSessionId(body.conversation_id)
+  );
+}
+
+function withoutWorkspacePromptCacheFallback<T extends CredentialsWithProviderData>(
+  credentials: T
+): T {
+  const providerSpecificData = credentials.providerSpecificData;
+  if (!providerSpecificData || !Object.prototype.hasOwnProperty.call(providerSpecificData, "workspaceId")) {
+    return credentials;
+  }
+
+  const nextProviderSpecificData: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(providerSpecificData)) {
+    if (key !== "workspaceId") {
+      nextProviderSpecificData[key] = value;
+    }
+  }
+
+  return {
+    ...credentials,
+    providerSpecificData: nextProviderSpecificData,
+  } as T;
+}
+
+export function buildCodexWsBridgeIdentityContext<T extends CredentialsWithProviderData>(
+  credentials: T,
+  body: JsonRecord
+): { sessionId: string | null; transformCredentials: T; headerCredentials: T } {
+  const sessionId = getCodexWsBridgePromptCacheSessionId(body);
+  if (!sessionId) {
+    return {
+      sessionId: null,
+      transformCredentials: withoutWorkspacePromptCacheFallback(credentials),
+      headerCredentials: credentials,
+    };
+  }
+
+  const identity = createCodexClientIdentity(sessionId, credentials.providerSpecificData ?? null);
+  if (!identity) {
+    return {
+      sessionId: null,
+      transformCredentials: withoutWorkspacePromptCacheFallback(credentials),
+      headerCredentials: credentials,
+    };
+  }
+
+  const identityCredentials = {
+    ...credentials,
+    providerSpecificData: {
+      ...(credentials.providerSpecificData || {}),
+      codexClientIdentity: identity,
+    },
+  } as T;
+
+  return {
+    sessionId,
+    transformCredentials: identityCredentials,
+    headerCredentials: identityCredentials,
+  };
+}
+
+function getHeaderCaseInsensitive(headers: Record<string, string>, key: string): string | null {
+  const lower = key.toLowerCase();
+  for (const [existingKey, value] of Object.entries(headers)) {
+    if (existingKey.toLowerCase() === lower && value.trim()) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function deleteHeaderCaseInsensitive(headers: Record<string, string>, key: string): void {
+  const lower = key.toLowerCase();
+  for (const existingKey of Object.keys(headers)) {
+    if (existingKey.toLowerCase() === lower) {
+      delete headers[existingKey];
+    }
+  }
+}
+
+function deleteCodexSessionHeaders(headers: Record<string, string>): void {
+  deleteHeaderCaseInsensitive(headers, "session_id");
+  deleteHeaderCaseInsensitive(headers, "Session-Id");
+}
+
+function parseJsonRecord(value: string): JsonRecord | null {
+  try {
+    const parsed = JSON.parse(value);
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function alignCodexWsBridgeCacheIdentity(
+  headers: Record<string, string>,
+  responseBody: JsonRecord
+): void {
+  const promptCacheKey = normalizeCodexSessionId(responseBody.prompt_cache_key);
+  if (!promptCacheKey) {
+    deleteCodexSessionHeaders(headers);
+    deleteHeaderCaseInsensitive(headers, "Conversation_id");
+    return;
+  }
+
+  responseBody.prompt_cache_key = promptCacheKey;
+  deleteCodexSessionHeaders(headers);
+  deleteHeaderCaseInsensitive(headers, "Conversation_id");
+  headers.session_id = promptCacheKey;
+  headers.Conversation_id = promptCacheKey;
+  headers["x-client-request-id"] = promptCacheKey;
+  headers["x-codex-window-id"] = `${promptCacheKey}:0`;
+
+  const rawTurnMetadata = getHeaderCaseInsensitive(headers, "x-codex-turn-metadata");
+  if (!rawTurnMetadata) return;
+
+  const turnMetadata = parseJsonRecord(rawTurnMetadata) || {};
+  turnMetadata.session_id = promptCacheKey;
+  turnMetadata.window_id = `${promptCacheKey}:0`;
+  deleteHeaderCaseInsensitive(headers, "x-codex-turn-metadata");
+  headers["x-codex-turn-metadata"] = JSON.stringify(turnMetadata);
+}
+
 async function authenticate(body: JsonRecord) {
   const authRequest = getAuthRequest(body);
   const auth = await authorizeWebSocketHandshake(authRequest);
@@ -163,17 +296,20 @@ async function prepare(body: JsonRecord) {
     return jsonError(401, "codex_oauth_token_missing", "Codex OAuth access token is missing");
   }
 
+  const bridgeIdentity = buildCodexWsBridgeIdentityContext(refreshedCredentials, responseBody);
+
   const transformed = (await executor.transformRequest(
     model,
     responseBody,
     true,
-    refreshedCredentials
+    bridgeIdentity.transformCredentials
   )) as JsonRecord;
   transformed.model = model;
   delete transformed.stream;
   delete transformed.stream_options;
 
-  const headers = normalizeUpstreamHeaders(executor.buildHeaders(refreshedCredentials, true));
+  const headers = normalizeUpstreamHeaders(executor.buildHeaders(bridgeIdentity.headerCredentials, true));
+  alignCodexWsBridgeCacheIdentity(headers, transformed);
 
   return NextResponse.json({
     ok: true,

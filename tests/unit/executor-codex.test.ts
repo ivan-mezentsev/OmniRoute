@@ -1088,6 +1088,73 @@ test("Codex internal websocket bridge secret comparison handles mismatched lengt
   assert.equal(bridgeSecretMatches("bridge-secret", ""), false);
 });
 
+test("Codex internal websocket bridge aligns cache identity without workspace fallback", async () => {
+  const {
+    alignCodexWsBridgeCacheIdentity,
+    buildCodexWsBridgeIdentityContext,
+    getCodexWsBridgePromptCacheSessionId,
+  } = await import("../../src/app/api/internal/codex-responses-ws/route.ts");
+  const executor = new CodexExecutor();
+  const credentials = {
+    accessToken: "codex-token",
+    providerSpecificData: {
+      workspaceId: "workspace-1",
+      accountId: "account-1",
+    },
+  };
+
+  assert.equal(
+    getCodexWsBridgePromptCacheSessionId({ conversation_id: "conversation-1" }),
+    "conversation-1"
+  );
+
+  const identityContext = buildCodexWsBridgeIdentityContext(credentials, {
+    session_id: "conversation-1",
+  });
+  const transformed = executor.transformRequest(
+    "gpt-5.5",
+    {
+      model: "gpt-5.5",
+      session_id: "conversation-1",
+      input: [],
+    },
+    true,
+    identityContext.transformCredentials
+  );
+  const headers = executor.buildHeaders(identityContext.headerCredentials, true);
+  alignCodexWsBridgeCacheIdentity(headers, transformed);
+
+  assert.equal(transformed.prompt_cache_key, "conversation-1");
+  assert.equal(transformed.session_id, undefined);
+  assert.equal(headers.session_id, "conversation-1");
+  assert.equal(headers.Conversation_id, "conversation-1");
+  assert.equal(headers["x-client-request-id"], "conversation-1");
+  assert.equal(headers["x-codex-window-id"], "conversation-1:0");
+  assert.equal(headers["chatgpt-account-id"], "workspace-1");
+  const turnMetadata = JSON.parse(headers["x-codex-turn-metadata"]);
+  assert.equal(turnMetadata.session_id, "conversation-1");
+  assert.equal(turnMetadata.window_id, "conversation-1:0");
+
+  const noIdentityContext = buildCodexWsBridgeIdentityContext(credentials, {});
+  const noIdentityTransformed = executor.transformRequest(
+    "gpt-5.5",
+    {
+      model: "gpt-5.5",
+      input: [],
+    },
+    true,
+    noIdentityContext.transformCredentials
+  );
+  const noIdentityHeaders = executor.buildHeaders(noIdentityContext.headerCredentials, true);
+  alignCodexWsBridgeCacheIdentity(noIdentityHeaders, noIdentityTransformed);
+
+  assert.equal(noIdentityContext.sessionId, null);
+  assert.equal(noIdentityTransformed.prompt_cache_key, undefined);
+  assert.equal(noIdentityHeaders["chatgpt-account-id"], "workspace-1");
+  assert.equal(noIdentityHeaders.session_id, undefined);
+  assert.equal(noIdentityHeaders.Conversation_id, undefined);
+});
+
 test("Codex internal websocket bridge rejects non-object JSON payloads", async () => {
   await withEnv({ OMNIROUTE_WS_BRIDGE_SECRET: "bridge-secret" }, async () => {
     const { POST } = await import("../../src/app/api/internal/codex-responses-ws/route.ts");
