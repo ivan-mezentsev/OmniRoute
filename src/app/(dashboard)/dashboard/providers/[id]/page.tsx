@@ -14,6 +14,7 @@ import { VideoExampleCard } from "@/app/(dashboard)/dashboard/media-providers/co
 import { MusicExampleCard } from "@/app/(dashboard)/dashboard/media-providers/components/MusicExampleCard";
 import type { ServiceKind } from "@/shared/constants/providers";
 import { useNotificationStore } from "@/store/notificationStore";
+import { filterProviderScopedImportModels } from "@/lib/providerModels/providerScopedImport";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -1277,7 +1278,7 @@ const MEDIA_SERVICE_KINDS: ServiceKind[] = [
   "music",
 ];
 
-function renderKindPanel(kind: ServiceKind, providerId: string): JSX.Element | null {
+function renderKindPanel(kind: ServiceKind, providerId: string) {
   switch (kind) {
     case "llm":
       return <LlmChatCard providerId={providerId} />;
@@ -3014,13 +3015,12 @@ export default function ProviderDetailPage() {
         return;
       }
 
-      const existingIds = new Set([
-        ...(modelMeta.customModels || []).map((m: any) => m.id),
-        ...models.map((m: any) => m.id),
-      ]);
-      const newModels = fetchedModels.filter(
-        (model: any) => !existingIds.has(model.id || model.name || model.model)
-      );
+      const newModels = filterProviderScopedImportModels({
+        fetchedModels,
+        registryModels,
+        syncedAvailableModels,
+        customModels: modelMeta.customModels || [],
+      });
 
       if (newModels.length === 0) {
         setImportProgress((prev) => ({
@@ -4749,7 +4749,7 @@ export default function ProviderDetailPage() {
           onClose={() => setImportCodexModalOpen(false)}
           onSuccess={() => {
             setImportCodexModalOpen(false);
-            fetchData();
+            void fetchConnections();
           }}
         />
       )}
@@ -4770,7 +4770,7 @@ export default function ProviderDetailPage() {
           onClose={() => setImportClaudeModalOpen(false)}
           onSuccess={() => {
             setImportClaudeModalOpen(false);
-            fetchData();
+            void fetchConnections();
           }}
         />
       )}
@@ -4791,7 +4791,7 @@ export default function ProviderDetailPage() {
           onClose={() => setImportGeminiModalOpen(false)}
           onSuccess={() => {
             setImportGeminiModalOpen(false);
-            fetchData();
+            void fetchConnections();
           }}
         />
       )}

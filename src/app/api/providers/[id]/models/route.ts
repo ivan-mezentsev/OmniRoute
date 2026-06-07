@@ -83,6 +83,19 @@ import {
   normalizeKimiWebCatalog,
   parseKimiWebAuth,
 } from "@omniroute/open-sse/services/kimiWeb.ts";
+import {
+  extractGeminiWebAccountPath,
+  buildGeminiWebBatchHeaders,
+  buildGeminiWebBatchUrl,
+  buildGeminiWebBootstrapHeaders,
+  buildGeminiWebCookieHeader,
+  buildGeminiWebGetUserStatusBody,
+  extractGeminiWebBootstrap,
+  extractGeminiWebRpcBody,
+  GEMINI_WEB_APP_URL,
+  normalizeGeminiWebDiscoveredModels,
+  parseGeminiWebUserStatus,
+} from "@omniroute/open-sse/services/geminiWebModels.ts";
 
 type JsonRecord = Record<string, unknown>;
 const antigravityDiscoveryInflight = new Map<
@@ -954,6 +967,162 @@ export async function GET(
       }));
 
       return buildApiDiscoveryResponse(models);
+    }
+
+    if (provider === "gemini-web") {
+      const cachedResponse = maybeReturnCachedDiscovery();
+      if (cachedResponse) return cachedResponse;
+
+      const autoFetchDisabledResponse = maybeReturnAutoFetchDisabled();
+      if (autoFetchDisabledResponse) return autoFetchDisabledResponse;
+
+      const cookieHeader = buildGeminiWebCookieHeader(apiKey || accessToken);
+      if (!cookieHeader) {
+        const fallback = buildDiscoveryFallbackResponse({
+          cacheWarning: "Gemini Web cookies unavailable — using cached catalog",
+          localWarning: "Gemini Web cookies unavailable — using local catalog",
+        });
+        if (fallback) return fallback;
+        return NextResponse.json(
+          {
+            error: "Paste your __Secure-1PSID cookie from gemini.google.com.",
+          },
+          { status: 400 }
+        );
+      }
+
+      let bootstrapResponse: Response;
+      try {
+        bootstrapResponse = await safeOutboundFetch(GEMINI_WEB_APP_URL, {
+          ...SAFE_OUTBOUND_FETCH_PRESETS.modelsDiscovery,
+          guard: getProviderOutboundGuard(),
+          proxyConfig: proxy,
+          method: "GET",
+          headers: buildGeminiWebBootstrapHeaders(cookieHeader),
+        });
+      } catch (error) {
+        const fallback = buildDiscoveryErrorFallbackResponse(error, {
+          cacheWarning: "Gemini Web bootstrap unavailable — using cached catalog",
+          localWarning: "Gemini Web bootstrap unavailable — using local catalog",
+        });
+        if (fallback) return fallback;
+        throw error;
+      }
+
+      if (bootstrapResponse.status === 401 || bootstrapResponse.status === 403) {
+        const fallback = buildDiscoveryFallbackResponse({
+          cacheWarning: `Auth failed (${bootstrapResponse.status}) — using cached catalog`,
+          localWarning: `Auth failed (${bootstrapResponse.status}) — using local catalog`,
+        });
+        if (fallback) return fallback;
+        return NextResponse.json(
+          { error: `Auth failed: ${bootstrapResponse.status}` },
+          { status: bootstrapResponse.status }
+        );
+      }
+
+      if (!bootstrapResponse.ok) {
+        const fallback = buildDiscoveryFallbackResponse({
+          cacheWarning: `Gemini Web bootstrap failed (${bootstrapResponse.status}) — using cached catalog`,
+          localWarning: `Gemini Web bootstrap failed (${bootstrapResponse.status}) — using local catalog`,
+        });
+        if (fallback) return fallback;
+        return NextResponse.json(
+          { error: `Failed to fetch models: ${bootstrapResponse.status}` },
+          { status: bootstrapResponse.status }
+        );
+      }
+
+      const bootstrapAccountPath = extractGeminiWebAccountPath(bootstrapResponse.url);
+      const bootstrap = extractGeminiWebBootstrap(await bootstrapResponse.text());
+      if (!bootstrap?.accessToken) {
+        const fallback = buildDiscoveryFallbackResponse({
+          cacheWarning: "Gemini Web bootstrap tokens unavailable — using cached catalog",
+          localWarning: "Gemini Web bootstrap tokens unavailable — using local catalog",
+        });
+        if (fallback) return fallback;
+        return NextResponse.json(
+          { error: "Failed to extract Gemini Web bootstrap tokens" },
+          { status: 502 }
+        );
+      }
+
+      let rpcResponse: Response;
+      try {
+        rpcResponse = await safeOutboundFetch(
+          buildGeminiWebBatchUrl({
+            language: bootstrap.language,
+            buildLabel: bootstrap.buildLabel,
+            sessionId: bootstrap.sessionId,
+            accountPath: bootstrapAccountPath,
+            sourcePath: `${bootstrapAccountPath}/app` || "/app",
+          }),
+          {
+            ...SAFE_OUTBOUND_FETCH_PRESETS.modelsDiscovery,
+            guard: getProviderOutboundGuard(),
+            proxyConfig: proxy,
+            method: "POST",
+            headers: buildGeminiWebBatchHeaders(cookieHeader),
+            body: buildGeminiWebGetUserStatusBody(bootstrap.accessToken),
+          }
+        );
+      } catch (error) {
+        const fallback = buildDiscoveryErrorFallbackResponse(error, {
+          cacheWarning: "Gemini Web model RPC unavailable — using cached catalog",
+          localWarning: "Gemini Web model RPC unavailable — using local catalog",
+        });
+        if (fallback) return fallback;
+        throw error;
+      }
+
+      if (rpcResponse.status === 401 || rpcResponse.status === 403) {
+        const fallback = buildDiscoveryFallbackResponse({
+          cacheWarning: `Auth failed (${rpcResponse.status}) — using cached catalog`,
+          localWarning: `Auth failed (${rpcResponse.status}) — using local catalog`,
+        });
+        if (fallback) return fallback;
+        return NextResponse.json(
+          { error: `Auth failed: ${rpcResponse.status}` },
+          { status: rpcResponse.status }
+        );
+      }
+
+      if (!rpcResponse.ok) {
+        const fallback = buildDiscoveryFallbackResponse({
+          cacheWarning: `Gemini Web model RPC failed (${rpcResponse.status}) — using cached catalog`,
+          localWarning: `Gemini Web model RPC failed (${rpcResponse.status}) — using local catalog`,
+        });
+        if (fallback) return fallback;
+        return NextResponse.json(
+          { error: `Failed to fetch models: ${rpcResponse.status}` },
+          { status: rpcResponse.status }
+        );
+      }
+
+      const rpcPayload = extractGeminiWebRpcBody(await rpcResponse.text());
+      if (!rpcPayload) {
+        const fallback = buildDiscoveryFallbackResponse({
+          cacheWarning: "Gemini Web model RPC payload missing — using cached catalog",
+          localWarning: "Gemini Web model RPC payload missing — using local catalog",
+        });
+        if (fallback) return fallback;
+        return NextResponse.json({ error: "Gemini Web model RPC payload missing" }, { status: 502 });
+      }
+
+      const userStatus = parseGeminiWebUserStatus(rpcPayload.body);
+      if (rpcPayload.rejectCode === 1016 || userStatus.statusCode === 1016) {
+        const fallback = buildDiscoveryFallbackResponse({
+          cacheWarning: "Gemini Web cookies invalid — using cached catalog",
+          localWarning: "Gemini Web cookies invalid — using local catalog",
+        });
+        if (fallback) return fallback;
+        return NextResponse.json(
+          { error: "Invalid or expired Gemini Web cookies" },
+          { status: 401 }
+        );
+      }
+
+      return buildApiDiscoveryResponse(normalizeGeminiWebDiscoveredModels(userStatus));
     }
 
     if (provider === "bedrock") {
