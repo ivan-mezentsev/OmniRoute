@@ -1,3 +1,101 @@
+> [⚠️ ATTENTION!]
+> This project is a long-term maintenance fork of [diegosouzapw/OmniRoute](https://github.com/diegosouzapw/OmniRoute), created to keep **VS Code + GitHub Copilot + [Relief Pilot](https://github.com/ivan-mezentsev/reliefpilot)** working together as reliably as possible.
+>
+> The main goal of this fork is stable, production-safe compatibility for subscription-backed developer providers such as **Codex**, **Claude Code**, and **Antigravity**, without the risk that a random upstream update breaks day-to-day development workflows or introduces noisy features that do not improve real production usage.
+>
+> For fork-specific LTS release notes, see [CHANGELOG_LTS.md](CHANGELOG_LTS.md).
+>
+> To run this service, you should build the Docker image and start your own instance locally or on a VPS. With AI agents helping, this setup is intentionally straightforward.
+>
+> For VS Code / Relief Pilot, just point the client at your own OmniRoute instance with the correct config and enjoy the workflow:
+>
+> ```json
+> {
+>     "name": "OmniRoute",
+>	"vendor": "customendpoint",
+>     "apiKey": "${input:chat.lm.secret.-<WILL BE SUBSTITUTED AUTOMATICALLY>}",
+>	"apiType": "responses",
+>     "models": [
+>     {
+>         "id": "cx/gpt-5.4-mini",
+>         "name": "cx/gpt-5.4-mini",
+>         "url": "https://<your omniroute address>/v1/responses",
+>         "supportsReasoningEffort": [
+>             "none",
+>             "low",
+>             "medium",
+>             "high",
+>             "xhigh"
+>         ],
+>         "reasoningEffortFormat": "responses",
+>         "toolCalling": true,
+>         "vision": true,
+>         "thinking": true,
+>         "maxInputTokens": 258400,
+>         "maxOutputTokens": 128000,
+>         "zeroDataRetentionEnabled": true
+>     },
+>     {
+>         "id": "cx/gpt-5.5-xhigh",
+>         "name": "cx/gpt-5.5-xhigh",
+>         "url": "https://<your omniroute address>/v1/responses",
+>         "supportsReasoningEffort": [
+>             "none",
+>             "low",
+>             "medium",
+>             "high",
+>             "xhigh"
+>         ],
+>         "reasoningEffortFormat": "responses",
+>         "toolCalling": true,
+>         "vision": true,
+>         "thinking": true,
+>         "maxInputTokens": 258400,
+>         "maxOutputTokens": 128000,
+>         "zeroDataRetentionEnabled": true
+>     },
+>     {
+>         "id": "cc/claude-opus-4-8",
+>         "name": "cc/claude-opus-4-8",
+>         "url": "https://<your omniroute address>/v1/responses",
+>         "supportsReasoningEffort": [
+>             "none",
+>             "low",
+>             "medium",
+>             "high",
+>             "max"
+>         ],
+>         "reasoningEffortFormat": "responses",
+>         "toolCalling": true,
+>         "vision": true,
+>         "thinking": true,
+>         "maxInputTokens": 258400,
+>         "maxOutputTokens": 128000,
+>         "zeroDataRetentionEnabled": true
+>     },
+>     {
+>         "id": "ag/gemini-3.5-flash-agent",
+>         "name": "ag/gemini-3.5-flash-agent",
+>         "url": "https://<your omniroute address>/v1/responses",
+>         "supportsReasoningEffort": [
+>             "none",
+>             "low",
+>             "medium",
+>             "high",
+>             "max"
+>         ],
+>         "reasoningEffortFormat": "responses",
+>         "toolCalling": true,
+>         "vision": true,
+>         "thinking": true,
+>         "maxInputTokens": 258400,
+>         "maxOutputTokens": 128000,
+>         "zeroDataRetentionEnabled": true
+>     }
+>     ]
+> }
+> ```
+
 <div align="center">
 
 <img src="./docs/screenshots/MainOmniRoute.png" alt="OmniRoute Dashboard" width="820"/>
