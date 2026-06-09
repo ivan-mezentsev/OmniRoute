@@ -797,7 +797,10 @@ export class BaseExecutor {
               delete (tb.output_config as Record<string, unknown>).effort;
             }
             appliedEffort = "off";
-          } else if (headerEffort && ["low", "medium", "high", "xhigh", "max"].includes(headerEffort)) {
+          } else if (
+            headerEffort &&
+            ["low", "medium", "high", "xhigh", "max"].includes(headerEffort)
+          ) {
             const oc =
               tb.output_config && typeof tb.output_config === "object"
                 ? (tb.output_config as Record<string, unknown>)
@@ -949,10 +952,14 @@ export class BaseExecutor {
           // convention; SSE decoding is gated on body.stream). anthropic-beta
           // is selected per request shape; the full set on a quota probe is
           // itself a fingerprint.
+          // Respect the client's negotiated anthropic-beta (real Claude Code) instead
+          // of force-injecting thinking/effort betas it never requested (#3415).
+          const clientAnthropicBeta =
+            clientHeaders?.["anthropic-beta"] ?? clientHeaders?.["Anthropic-Beta"] ?? null;
           const ccHeaders: Record<string, string> = {
             Accept: "application/json",
             "anthropic-version": "2023-06-01",
-            "anthropic-beta": selectBetaFlags(tb),
+            "anthropic-beta": selectBetaFlags(tb, null, clientAnthropicBeta),
             "anthropic-dangerous-direct-browser-access": "true",
             "x-app": "cli",
             "User-Agent": `claude-cli/${CLAUDE_CODE_VERSION} (external, cli)`,
