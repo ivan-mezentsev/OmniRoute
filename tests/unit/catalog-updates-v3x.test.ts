@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { getModelsByProviderId } from "../../open-sse/config/providerModels.ts";
 import { resolveCanonicalProviderModel } from "../../open-sse/services/model.ts";
+import { DEFAULT_PRICING } from "../../src/shared/constants/pricing.ts";
 
 test("Pollinations catalog mirrors the current public text model lineup", () => {
   const models = getModelsByProviderId("pollinations");
@@ -44,4 +45,17 @@ test("NVIDIA catalog includes the verified 2026 additions and GPT OSS 20B alias 
     provider: "nvidia",
     model: "openai/gpt-oss-20b",
   });
+});
+
+test("Fable 5 catalog exposes claude-fable-5 in cc with matching pricing", () => {
+  const ccModels = getModelsByProviderId("cc");
+  const fable = ccModels.find((model) => model.id === "claude-fable-5");
+
+  assert.ok(fable, "cc must expose claude-fable-5");
+  assert.equal(fable.contextLength, 1000000);
+  assert.equal(fable.maxOutputTokens, 128000);
+
+  const pricing = DEFAULT_PRICING as Record<string, Record<string, unknown>>;
+  assert.ok(pricing.cc["claude-fable-5"], "cc pricing must include claude-fable-5");
+  assert.ok(pricing.kiro["claude-fable-5"], "kiro pricing must include claude-fable-5");
 });
