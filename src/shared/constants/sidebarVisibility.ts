@@ -18,6 +18,7 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   "cloud-agents",
   // OmniProxy > Integrations
   "api-endpoints",
+  "prompt-filters",
   "webhooks",
   // OmniProxy > Proxy
   "proxy",
@@ -260,6 +261,13 @@ const INTEGRATIONS_GROUP: SidebarItemGroup = {
       i18nKey: "apiEndpoints",
       subtitleKey: "apiEndpointsSubtitle",
       icon: "api",
+    },
+    {
+      id: "prompt-filters",
+      href: "/dashboard/prompt-filters",
+      i18nKey: "promptFilters",
+      subtitleKey: "promptFiltersSubtitle",
+      icon: "content_cut",
     },
     {
       id: "webhooks",

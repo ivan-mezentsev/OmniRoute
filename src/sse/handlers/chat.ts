@@ -32,6 +32,7 @@ import type { AutoVariant } from "@omniroute/open-sse/services/autoCombo/autoPre
 import * as log from "../utils/logger";
 import { checkAndRefreshToken } from "../services/tokenRefresh";
 import { createHookContext, runHooks, initPreRequestRegistry } from "@/lib/middleware/registry";
+import { applyPromptFilters } from "@/lib/promptFilters/engine";
 import { deleteHandoff, getHandoff } from "@/lib/db/contextHandoffs";
 import {
   deleteSessionAccountAffinity,
@@ -158,6 +159,26 @@ function intersectAllowedConnectionIds(primary: unknown, secondary: unknown): st
 }
 
 const PROVIDER_BREAKER_FAILURE_STATUSES = new Set([408, 500, 502, 503, 504]);
+
+type ComboCallbackTarget = {
+  allowRateLimitedConnection?: unknown;
+  connectionId?: unknown;
+  executionKey?: unknown;
+  stepId?: unknown;
+  allowedConnectionIds?: unknown;
+  failoverBeforeRetry?: unknown;
+  modelAbortSignal?: AbortSignal | null;
+};
+
+function getTargetString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function getTargetStringArray(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  const values = value.filter((entry): entry is string => typeof entry === "string");
+  return values.length > 0 ? values : null;
+}
 
 /**
  * Handle chat completion request
@@ -314,7 +335,7 @@ export async function handleChat(request: any, clientRawRequest: any = null) {
     >,
     model: modelStr,
     combo: undefined,
-    apiKeyInfo: apiKeyInfo as Record<string, unknown> | undefined,
+    apiKeyInfo: apiKeyInfo as unknown as Record<string, unknown> | undefined,
     log,
   });
 
@@ -329,6 +350,18 @@ export async function handleChat(request: any, clientRawRequest: any = null) {
   // Short-circuit if a hook returned a direct response
   if (hookResponse) {
     return errorResponse(hookResponse.status, hookResponse.body as any);
+  }
+
+  const promptFilterResult = await applyPromptFilters(
+    body as Record<string, unknown>,
+    request.headers.get("user-agent") || ""
+  );
+  if (promptFilterResult.changed) {
+    body = promptFilterResult.body as any;
+    log.info(
+      "PROMPT_FILTERS",
+      `Removed ${promptFilterResult.totalRemovals} prompt block occurrence(s) across ${promptFilterResult.applications.length} rule application(s)`
+    );
   }
 
   // T05 — Task-Aware Smart Routing
@@ -503,16 +536,12 @@ export async function handleChat(request: any, clientRawRequest: any = null) {
       handleSingleModel: (
         b: any,
         m: string,
-        target?: {
-          allowRateLimitedConnection?: boolean;
-          connectionId?: string | null;
-          executionKey?: string | null;
-          stepId?: string | null;
-          allowedConnectionIds?: string[] | null;
-          failoverBeforeRetry?: boolean;
-        }
-      ) =>
-        handleSingleModelChat(
+        target?: ComboCallbackTarget
+      ) => {
+        const forcedConnectionId = getTargetString(target?.connectionId);
+        const stepId = getTargetString(target?.stepId);
+        const executionKey = getTargetString(target?.executionKey);
+        return handleSingleModelChat(
           b,
           m,
           clientRawRequest,
@@ -524,20 +553,24 @@ export async function handleChat(request: any, clientRawRequest: any = null) {
             sessionId,
             sessionAffinityKey,
             forceLiveComboTest: isComboLiveTest,
-            forcedConnectionId: target?.connectionId ?? null,
-            allowedConnectionIds: target?.allowedConnectionIds ?? null,
-            comboStepId: target?.stepId || null,
-            comboExecutionKey: target?.executionKey || target?.stepId || null,
-            skipUpstreamRetry: target?.failoverBeforeRetry ?? false,
+            forcedConnectionId,
+            allowedConnectionIds: getTargetStringArray(target?.allowedConnectionIds),
+            comboStepId: stepId,
+            comboExecutionKey: executionKey || stepId,
+            skipUpstreamRetry: target?.failoverBeforeRetry === true,
             allowRateLimitedConnection: target?.allowRateLimitedConnection === true,
             preselectedCredentials: comboPreselectedCredentials.get(
-              getComboCredentialCacheKey(m, target)
+              getComboCredentialCacheKey(m, {
+                connectionId: forcedConnectionId,
+                executionKey,
+              })
             ),
             cachedSettings: settings,
           },
           combo.strategy,
           true
-        ),
+        );
+      },
       isModelAvailable: checkModelAvailable,
       log,
       settings,
@@ -690,12 +723,7 @@ async function handleSingleModelChat(
       handleSingleModel: (
         b: any,
         m: string,
-        target?: {
-          connectionId?: string | null;
-          executionKey?: string | null;
-          stepId?: string | null;
-          failoverBeforeRetry?: boolean;
-        }
+        target?: ComboCallbackTarget
       ) =>
         handleSingleModelChat(
           b,
@@ -712,7 +740,7 @@ async function handleSingleModelChat(
             allowedConnectionIds: null,
             comboStepId: null,
             comboExecutionKey: null,
-            skipUpstreamRetry: target?.failoverBeforeRetry ?? false,
+            skipUpstreamRetry: target?.failoverBeforeRetry === true,
           },
           redirectCombo.strategy ?? "priority",
           false

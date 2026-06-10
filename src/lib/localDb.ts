@@ -422,6 +422,25 @@ export {
 } from "./db/middleware";
 
 export {
+  getPromptFilters,
+  getEnabledPromptFilters,
+  getPromptFilter,
+  createPromptFilter,
+  updatePromptFilter,
+  deletePromptFilter,
+  recordPromptFilterMatches,
+} from "./db/promptFilters";
+
+export type {
+  PromptFilter,
+  PromptFilterBlock,
+  PromptFilterApplication,
+  PromptFilterResult,
+  PromptFilterInput,
+  PromptFilterApplyTo,
+} from "@/lib/promptFilters/types";
+
+export {
   getAllKeyGroups,
   getKeyGroup,
   getKeyGroupWithPermissions,

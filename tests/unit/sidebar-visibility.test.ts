@@ -53,6 +53,7 @@ test("primary sidebar items place limits after cache", () => {
       "agents",
       "cloud-agents",
       "api-endpoints",
+      "prompt-filters",
       "webhooks",
       "proxy",
     ]
@@ -86,7 +87,7 @@ test("sidebar visibility drops stale entries from saved settings", () => {
     false
   );
   assert.equal((allSidebarItemIds as string[]).includes("auto-combo"), false);
-  assert.deepEqual(sidebarVisibility.normalizeHiddenSidebarItems(["auto-combo" as any, "logs"]), [
+  assert.deepEqual(sidebarVisibility.normalizeHiddenSidebarItems(["auto-combo" as unknown, "logs"]), [
     "logs",
   ]);
 });
