@@ -50,6 +50,12 @@ function getEffectiveKey(credentials: ProviderCredentials): string {
   return credentials.apiKey || credentials.accessToken || "";
 }
 
+function parseGlm52Effort(model: string): { baseModel: string; effort: "high" | "max" } | null {
+  if (model === "glm-5.2-high") return { baseModel: "glm-5.2", effort: "high" };
+  if (model === "glm-5.2-max") return { baseModel: "glm-5.2", effort: "max" };
+  return null;
+}
+
 function applyGlmRequestDefaults(body: unknown, defaults?: JsonRecord | null): unknown {
   const record = asRecord(body);
   if (!record || !defaults) return body;
@@ -228,27 +234,50 @@ export class GlmExecutor extends DefaultExecutor {
     credentials: ProviderCredentials,
     transport: GlmTransport
   ) {
-    const transformed = this.transformRequest(model, body, stream, credentials);
+    const effortTier = parseGlm52Effort(model);
+    const effectiveModel = effortTier ? effortTier.baseModel : model;
+
+    const transformed = this.transformRequest(effectiveModel, body, stream, credentials);
+    const record = asRecord(transformed);
+
+    if (record && effortTier) {
+      record.model = effectiveModel;
+    }
 
     if (transport === "openai") {
-      const record = asRecord(transformed);
       if (record && stream && hasTools(record) && record.tool_stream === undefined) {
         return { ...record, tool_stream: true };
       }
       return transformed;
     }
 
-    return translateRequest(
+    const translated = translateRequest(
       FORMATS.OPENAI,
       FORMATS.CLAUDE,
-      model,
-      { ...(transformed as JsonRecord), _disableToolPrefix: true },
+      effectiveModel,
+      { ...(record ?? {}), _disableToolPrefix: true },
       stream,
       credentials,
       this.provider,
       null,
       { preserveCacheControl: false }
     );
+
+    if (effortTier) {
+      const translatedRecord = asRecord(translated);
+      if (translatedRecord) {
+        translatedRecord.effort = effortTier.effort;
+        const existingThinking = asRecord(translatedRecord.thinking);
+        if (!existingThinking || existingThinking.type !== "enabled") {
+          translatedRecord.thinking = {
+            ...existingThinking,
+            type: "enabled",
+          };
+        }
+      }
+    }
+
+    return translated;
   }
 
   private async executeTransport(
@@ -343,6 +372,11 @@ export class GlmExecutor extends DefaultExecutor {
   }
 
   async execute(input: ExecuteInput): Promise<GlmExecuteResult> {
+    const effortTier = parseGlm52Effort(input.model);
+    if (effortTier) {
+      return this.executeTransport(input, "anthropic");
+    }
+
     const primaryTransport = getGlmTransport(
       input.credentials.providerSpecificData,
       this.config.baseUrl
