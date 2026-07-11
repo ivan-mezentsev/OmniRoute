@@ -36,6 +36,7 @@ export const EFFORT_BUDGETS: Record<string, number> = {
   high: 131072, // Handled globally by capThinkingBudget later
   max: 131072, // T11: Claude "max" / "xhigh" — full budget
   xhigh: 131072, // T11: explicit alias used internally
+  ultra: 131072, // Codex GPT-5.6 highest reasoning tier
 };
 
 // thinkingLevel string → budget token mapping
@@ -47,6 +48,7 @@ export const THINKING_LEVEL_MAP: Record<string, number> = {
   high: 24576,
   max: 131072, // T11: max = full Claude budget (sub2api: xhigh)
   xhigh: 131072, // T11: explicit xhigh alias
+  ultra: 131072, // Codex GPT-5.6 highest reasoning tier
 };
 
 // Default config (passthrough = backward compatible)

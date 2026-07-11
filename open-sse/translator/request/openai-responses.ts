@@ -18,6 +18,9 @@ const WEB_SEARCH_TOOL_TYPES = /^web_search/;
 // tool_search is a Responses API built-in sent by newer Codex clients; it has no Chat Completions
 // equivalent and must be silently dropped (not rejected with 400).
 const TOOL_SEARCH_TOOL_TYPES = /^tool_search/;
+const CODEX_REASONING_SUFFIX_PATTERN = /-(?:none|low|medium|high|xhigh|max|ultra)$/i;
+const CODEX_MAX_EFFORT_MODEL_PATTERN = /^gpt-5\.6-(?:sol|terra|luna)(?:-review)?$/i;
+const CODEX_ULTRA_EFFORT_MODEL_PATTERN = /^gpt-5\.6-(?:sol|terra)(?:-review)?$/i;
 
 function toRecord(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
@@ -31,9 +34,29 @@ function toString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
-function normalizeResponsesReasoningEffort(value: unknown): string {
+function normalizeCodexReasoningModelId(model: unknown): string {
+  return toString(model)
+    .trim()
+    .toLowerCase()
+    .replace(/^(?:codex|cx)\//, "")
+    .replace(CODEX_REASONING_SUFFIX_PATTERN, "");
+}
+
+function normalizeResponsesReasoningEffort(value: unknown, model?: unknown): string {
   const effort = toString(value).toLowerCase();
-  return effort === "max" ? "xhigh" : effort;
+  const normalizedModel = normalizeCodexReasoningModelId(model);
+
+  if (effort === "ultra") {
+    if (CODEX_ULTRA_EFFORT_MODEL_PATTERN.test(normalizedModel)) return "ultra";
+    if (CODEX_MAX_EFFORT_MODEL_PATTERN.test(normalizedModel)) return "max";
+    return "xhigh";
+  }
+
+  if (effort === "max") {
+    return CODEX_MAX_EFFORT_MODEL_PATTERN.test(normalizedModel) ? "max" : "xhigh";
+  }
+
+  return effort;
 }
 
 function shouldRequestClaudeSummarizedThinking(value: unknown): boolean {
@@ -351,7 +374,7 @@ export function openaiResponsesToOpenAIRequest(
     const reasoningRec = toRecord(root.reasoning);
     const effort = toString(reasoningRec.effort);
     if (effort && result.reasoning_effort === undefined) {
-      result.reasoning_effort = normalizeResponsesReasoningEffort(effort);
+      result.reasoning_effort = normalizeResponsesReasoningEffort(effort, model);
     }
     if (shouldRequestClaudeSummarizedThinking(reasoningRec.summary)) {
       result[COPILOT_REASONING_SUMMARY_MARKER] = "summarized";
@@ -639,7 +662,7 @@ export function openaiToOpenAIResponsesRequest(
   if (root.reasoning !== undefined) {
     result.reasoning = root.reasoning;
   } else if (root.reasoning_effort !== undefined) {
-    const effort = normalizeResponsesReasoningEffort(root.reasoning_effort);
+    const effort = normalizeResponsesReasoningEffort(root.reasoning_effort, model);
     if (effort) {
       result.reasoning = { effort };
     }

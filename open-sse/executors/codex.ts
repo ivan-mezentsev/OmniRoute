@@ -156,9 +156,7 @@ export interface CodexQuotaSnapshot {
  *   x-codex-5h-usage / x-codex-5h-limit / x-codex-5h-reset-at
  *   x-codex-7d-usage / x-codex-7d-limit / x-codex-7d-reset-at
  */
-export function parseCodexQuotaHeaders(
-  headers: Record<string, string>
-): CodexQuotaSnapshot | null {
+export function parseCodexQuotaHeaders(headers: Record<string, string>): CodexQuotaSnapshot | null {
   const usage5h = headers["x-codex-5h-usage"] ?? null;
   const limit5h = headers["x-codex-5h-limit"] ?? null;
   const resetAt5h = headers["x-codex-5h-reset-at"] ?? null;
@@ -250,10 +248,16 @@ export function getCodexDualWindowCooldownMs(
 }
 
 // Ordered list of effort levels from lowest to highest
-const EFFORT_ORDER = ["none", "low", "medium", "high", "xhigh"] as const;
+const EFFORT_ORDER = ["none", "low", "medium", "high", "xhigh", "max", "ultra"] as const;
 type EffortLevel = (typeof EFFORT_ORDER)[number];
 const CODEX_FAST_WIRE_VALUE = "priority";
 const CODEX_RESPONSES_WS_URL = "wss://chatgpt.com/backend-api/codex/responses";
+const CODEX_REVIEW_VARIANT_PATTERN = /^(gpt-5\.6-(?:sol|terra|luna))-review$/;
+
+function stripCodexReviewVariant(modelId: string): string {
+  if (modelId === "codex-auto-review") return modelId;
+  return modelId.replace(CODEX_REVIEW_VARIANT_PATTERN, "$1");
+}
 
 function splitCodexReasoningSuffix(model: unknown): {
   baseModel: string;
@@ -263,12 +267,12 @@ function splitCodexReasoningSuffix(model: unknown): {
   for (const level of EFFORT_ORDER) {
     if (modelId.endsWith(`-${level}`)) {
       return {
-        baseModel: modelId.slice(0, -`-${level}`.length),
+        baseModel: stripCodexReviewVariant(modelId.slice(0, -`-${level}`.length)),
         effort: level,
       };
     }
   }
-  return { baseModel: modelId, effort: null };
+  return { baseModel: stripCodexReviewVariant(modelId), effort: null };
 }
 
 export function getCodexUpstreamModel(model: unknown): string {
@@ -546,6 +550,9 @@ function normalizeServiceTierValue(value: unknown): string | undefined {
  * Update this table when Codex releases new models with different caps.
  */
 const MAX_EFFORT_BY_MODEL: Record<string, EffortLevel> = {
+  "gpt-5.6-sol": "ultra",
+  "gpt-5.6-terra": "ultra",
+  "gpt-5.6-luna": "max",
   "gpt-5.3-codex": "xhigh",
   "gpt-5.2-codex": "xhigh",
   "gpt-5.1-codex-max": "xhigh",
@@ -572,7 +579,6 @@ function clampEffort(model: string, requested: string): string {
 function normalizeEffortValue(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const normalized = value.trim().toLowerCase();
-  if (normalized === "max") return "xhigh";
   return normalized || undefined;
 }
 
@@ -1238,10 +1244,12 @@ export class CodexExecutor extends BaseExecutor {
     let modelEffort: string | null = null;
     let cleanModel = typeof body.model === "string" ? body.model : model;
     const splitModel = splitCodexReasoningSuffix(cleanModel);
-    if (splitModel.effort) {
-      modelEffort = splitModel.effort;
+    if (splitModel.baseModel !== cleanModel) {
       body.model = splitModel.baseModel;
       cleanModel = splitModel.baseModel;
+    }
+    if (splitModel.effort) {
+      modelEffort = splitModel.effort;
     }
 
     const reasoningRecord =

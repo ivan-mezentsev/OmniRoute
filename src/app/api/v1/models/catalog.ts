@@ -33,6 +33,7 @@ import { isAuthRequired, isDashboardSessionAuthenticated } from "@/shared/utils/
 import { parseModel } from "@omniroute/open-sse/services/model";
 import { getTokenLimit } from "@omniroute/open-sse/services/contextManager";
 import type { ComboModelStep } from "@/lib/combos/steps";
+import { buildCompatibleModelsEnvelope } from "./catalogRequest";
 
 interface CustomModelEntry {
   id?: string;
@@ -70,6 +71,11 @@ type ComboTargetCatalogMetadata = {
   inputModalities?: string[];
   outputModalities?: string[];
   capabilities: Record<string, boolean>;
+};
+
+type ComboCatalogEntry = Record<string, any> & {
+  name: string;
+  models: unknown[];
 };
 
 function isPositiveFiniteNumber(value: unknown): value is number {
@@ -318,9 +324,9 @@ export async function getUnifiedModelsResponse(
     }
 
     // Get combos
-    let combos = [];
+    let combos: ComboCatalogEntry[] = [];
     try {
-      combos = await getCombos();
+      combos = (await getCombos()) as unknown as ComboCatalogEntry[];
     } catch (e) {
       console.log("Could not fetch combos");
     }
@@ -523,7 +529,10 @@ export async function getUnifiedModelsResponse(
       };
     };
 
-    const buildComboCatalogMetadata = (combo: Record<string, any>, allCombos: any[]) => {
+    const buildComboCatalogMetadata = (
+      combo: ComboCatalogEntry,
+      allCombos: ComboCatalogEntry[]
+    ) => {
       const explicitContextLength = isPositiveFiniteNumber(combo.context_length)
         ? combo.context_length
         : undefined;
@@ -1180,18 +1189,12 @@ export async function getUnifiedModelsResponse(
         : enriched;
     });
 
-    return Response.json(
-      {
-        object: "list",
-        data: enrichedModels,
+    return Response.json(buildCompatibleModelsEnvelope(enrichedModels, request), {
+      headers: {
+        ...corsHeaders,
+        ...diagnosticHeaders,
       },
-      {
-        headers: {
-          ...corsHeaders,
-          ...diagnosticHeaders,
-        },
-      }
-    );
+    });
   } catch (error) {
     console.log("Error fetching models:", error);
     return Response.json(

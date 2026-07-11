@@ -4,6 +4,9 @@ import { adjustMaxTokens } from "../helpers/maxTokensHelper.ts";
 
 type JsonRecord = Record<string, unknown>;
 const TOOL_CHOICE_ANY = ["a", "n", "y"].join("");
+const CODEX_REASONING_SUFFIX_PATTERN = /-(?:none|low|medium|high|xhigh|max|ultra)$/i;
+const CODEX_MAX_EFFORT_MODEL_PATTERN = /^gpt-5\.6-(?:sol|terra|luna)(?:-review)?$/i;
+const CODEX_ULTRA_EFFORT_MODEL_PATTERN = /^gpt-5\.6-(?:sol|terra)(?:-review)?$/i;
 
 /**
  * Normalize tool input schema for OpenAI compatibility.
@@ -20,10 +23,31 @@ function normalizeToolSchema(schema: unknown): Record<string, unknown> {
   return s;
 }
 
-function normalizeOpenAIReasoningEffort(effort: unknown): string | undefined {
+function normalizeCodexReasoningModelId(model: unknown): string {
+  return typeof model === "string"
+    ? model
+        .trim()
+        .toLowerCase()
+        .replace(/^(?:codex|cx)\//, "")
+        .replace(CODEX_REASONING_SUFFIX_PATTERN, "")
+    : "";
+}
+
+function normalizeOpenAIReasoningEffort(
+  effort: unknown,
+  model?: unknown
+): string | undefined {
   if (typeof effort !== "string") return undefined;
   const normalized = effort.toLowerCase();
-  if (normalized === "max") return "xhigh";
+  const normalizedModel = normalizeCodexReasoningModelId(model);
+  if (normalized === "ultra") {
+    if (CODEX_ULTRA_EFFORT_MODEL_PATTERN.test(normalizedModel)) return "ultra";
+    if (CODEX_MAX_EFFORT_MODEL_PATTERN.test(normalizedModel)) return "max";
+    return "xhigh";
+  }
+  if (normalized === "max") {
+    return CODEX_MAX_EFFORT_MODEL_PATTERN.test(normalizedModel) ? "max" : "xhigh";
+  }
   return normalized || undefined;
 }
 
@@ -127,7 +151,7 @@ export function claudeToOpenAIRequest(model, body, stream) {
   // Reasoning effort: map Claude-side thinking controls to OpenAI reasoning_effort.
   // Priority: output_config.effort (Claude Code) > thinking.budget_tokens (Claude native).
   // Budget buckets match the reverse mapping in thinkingBudget.ts::setCustomBudget.
-  const outputEffort = normalizeOpenAIReasoningEffort(body.output_config?.effort) || "";
+  const outputEffort = normalizeOpenAIReasoningEffort(body.output_config?.effort, model) || "";
   if (outputEffort) {
     result.reasoning_effort = outputEffort;
   } else if (body.thinking?.type === "enabled" && typeof body.thinking.budget_tokens === "number") {

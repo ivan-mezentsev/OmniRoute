@@ -20,7 +20,15 @@ function isHttpUrl(value: string): boolean {
   }
 }
 
-const CODEX_REASONING_EFFORT_VALUES = new Set(["none", "low", "medium", "high", "xhigh"]);
+const CODEX_REASONING_EFFORT_VALUES = new Set([
+  "none",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+  "ultra",
+]);
 const REQUEST_DEFAULT_SERVICE_TIER_VALUES = new Set(["default", "priority", "fast", "flex"]);
 
 function validateProviderSpecificData(
@@ -129,7 +137,7 @@ function validateProviderSpecificData(
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message:
-            "providerSpecificData.requestDefaults.reasoningEffort must be one of none, low, medium, high, xhigh",
+            "providerSpecificData.requestDefaults.reasoningEffort must be one of none, low, medium, high, xhigh, max, ultra",
           path: ["requestDefaults", "reasoningEffort"],
         });
       }
@@ -1284,7 +1292,7 @@ export const updateThinkingBudgetSchema = z
   .object({
     mode: z.enum(["passthrough", "auto", "custom", "adaptive"]).optional(),
     customBudget: z.coerce.number().int().min(0).max(131072).optional(),
-    effortLevel: z.enum(["none", "low", "medium", "high", "xhigh", "max"]).optional(),
+    effortLevel: z.enum(["none", "low", "medium", "high", "xhigh", "max", "ultra"]).optional(),
     baseBudget: z.coerce.number().int().min(0).max(131072).optional(),
     complexityMultiplier: z.coerce.number().min(0).optional(),
   })
@@ -2120,7 +2128,7 @@ export const cliModelConfigSchema = z.object({
   baseUrl: z.string().trim().min(1, "baseUrl and model are required"),
   apiKey: z.string().nullable().optional(),
   model: z.string().trim().min(1, "baseUrl and model are required"),
-  reasoningEffort: z.enum(["none", "low", "medium", "high", "xhigh"]).optional(),
+  reasoningEffort: z.enum(["none", "low", "medium", "high", "xhigh", "max", "ultra"]).optional(),
   wireApi: z.enum(["chat", "responses"]).optional(),
   modelMappings: z.record(z.string().trim().min(1), z.string().trim().min(1)).optional(),
 });

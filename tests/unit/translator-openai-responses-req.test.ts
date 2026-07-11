@@ -450,6 +450,36 @@ test("Chat -> Responses normalizes reasoning_effort max to xhigh", () => {
   assert.equal((result as any).reasoning_effort, undefined);
 });
 
+test("Chat -> Responses preserves reasoning_effort max for GPT 5.6 Sol", () => {
+  const result = openaiToOpenAIResponsesRequest(
+    "gpt-5.6-sol",
+    {
+      messages: [{ role: "user", content: "Hello" }],
+      reasoning_effort: "max",
+    },
+    false,
+    null
+  );
+
+  assert.deepEqual((result as any).reasoning, { effort: "max" });
+  assert.equal((result as any).reasoning_effort, undefined);
+});
+
+test("Chat -> Responses preserves reasoning_effort ultra for GPT 5.6 Sol", () => {
+  const result = openaiToOpenAIResponsesRequest(
+    "gpt-5.6-sol",
+    {
+      messages: [{ role: "user", content: "Hello" }],
+      reasoning_effort: "ultra",
+    },
+    false,
+    null
+  );
+
+  assert.deepEqual((result as any).reasoning, { effort: "ultra" });
+  assert.equal((result as any).reasoning_effort, undefined);
+});
+
 test("Chat -> Responses filters orphan function_call_output items and leaves empty instructions when absent", () => {
   const result = openaiToOpenAIResponsesRequest(
     "gpt-4o",
@@ -579,6 +609,34 @@ test("Responses -> Chat normalizes Copilot reasoning.effort=max to xhigh", () =>
   ) as Record<string, unknown>;
 
   assert.equal(result.reasoning_effort, "xhigh");
+});
+
+test("Responses -> Chat preserves Copilot reasoning.effort=max for GPT 5.6 Sol", () => {
+  const result = openaiResponsesToOpenAIRequest(
+    "gpt-5.6-sol",
+    {
+      input: [{ role: "user", content: [{ type: "input_text", text: "hi" }] }],
+      reasoning: { effort: "max" },
+    },
+    true,
+    { _copilotClient: true }
+  ) as Record<string, unknown>;
+
+  assert.equal(result.reasoning_effort, "max");
+});
+
+test("Responses -> Chat preserves Copilot reasoning.effort=ultra for GPT 5.6 Sol", () => {
+  const result = openaiResponsesToOpenAIRequest(
+    "gpt-5.6-sol",
+    {
+      input: [{ role: "user", content: [{ type: "input_text", text: "hi" }] }],
+      reasoning: { effort: "ultra" },
+    },
+    true,
+    { _copilotClient: true }
+  ) as Record<string, unknown>;
+
+  assert.equal(result.reasoning_effort, "ultra");
 });
 
 test("Responses -> Chat keeps an explicit reasoning_effort over reasoning.effort when _copilotClient is set", () => {

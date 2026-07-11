@@ -241,6 +241,32 @@ test("Claude -> OpenAI normalizes output_config.effort=max to xhigh", () => {
   assert.equal(result.reasoning_effort, "xhigh");
 });
 
+test("Claude -> OpenAI preserves output_config.effort=max for GPT 5.6 Sol", () => {
+  const result = claudeToOpenAIRequest(
+    "gpt-5.6-sol",
+    {
+      messages: [{ role: "user", content: "hi" }],
+      output_config: { effort: "max" },
+    },
+    false
+  );
+
+  assert.equal(result.reasoning_effort, "max");
+});
+
+test("Claude -> OpenAI preserves output_config.effort=ultra for GPT 5.6 Sol", () => {
+  const result = claudeToOpenAIRequest(
+    "gpt-5.6-sol",
+    {
+      messages: [{ role: "user", content: "hi" }],
+      output_config: { effort: "ultra" },
+    },
+    false
+  );
+
+  assert.equal(result.reasoning_effort, "ultra");
+});
+
 test("Claude -> OpenAI ignores disabled thinking and leaves reasoning_effort unset", () => {
   const result = claudeToOpenAIRequest(
     "gpt-5",

@@ -19,6 +19,30 @@ const GPT_5_5_PRICING = {
   cache_creation: 5.0,
 };
 
+const GPT_5_6_SOL_PRICING = {
+  input: 5.0,
+  output: 30.0,
+  cached: 0.5,
+  reasoning: 30.0,
+  cache_creation: 5.0,
+};
+
+const GPT_5_6_TERRA_PRICING = {
+  input: 2.5,
+  output: 15.0,
+  cached: 0.25,
+  reasoning: 15.0,
+  cache_creation: 2.5,
+};
+
+const GPT_5_6_LUNA_PRICING = {
+  input: 1.0,
+  output: 6.0,
+  cached: 0.1,
+  reasoning: 6.0,
+  cache_creation: 1.0,
+};
+
 const CLAUDE_FABLE_5_PRICING = {
   input: 15.0,
   output: 75.0,
@@ -227,6 +251,13 @@ export const DEFAULT_PRICING = {
     "gpt-5.5-medium": GPT_5_5_PRICING,
     "gpt-5.5-low": GPT_5_5_PRICING,
     "gpt-5.5-none": GPT_5_5_PRICING,
+    // GPT 5.6 family
+    "gpt-5.6-sol": GPT_5_6_SOL_PRICING,
+    "gpt-5.6-sol-review": GPT_5_6_SOL_PRICING,
+    "gpt-5.6-terra": GPT_5_6_TERRA_PRICING,
+    "gpt-5.6-terra-review": GPT_5_6_TERRA_PRICING,
+    "gpt-5.6-luna": GPT_5_6_LUNA_PRICING,
+    "gpt-5.6-luna-review": GPT_5_6_LUNA_PRICING,
     // GPT 5.4
     "gpt-5.4": {
       input: 5.0,

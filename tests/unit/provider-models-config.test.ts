@@ -116,3 +116,10 @@ test("Claude xhigh effort support defaults on for new models and opts out legacy
   assert.equal(supportsXHighEffort("claude", "claude-sonnet-4-6"), false);
   assert.equal(supportsXHighEffort("claude", "claude-future-5-0"), true);
 });
+
+test("Codex GPT 5.6 family supports xhigh effort", () => {
+  assert.equal(supportsXHighEffort("codex", "gpt-5.6-sol"), true);
+  assert.equal(supportsXHighEffort("codex", "gpt-5.6-sol-review"), true);
+  assert.equal(supportsXHighEffort("codex", "gpt-5.6-terra"), true);
+  assert.equal(supportsXHighEffort("codex", "gpt-5.6-luna"), true);
+});

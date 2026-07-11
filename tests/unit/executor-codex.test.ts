@@ -85,6 +85,9 @@ test("Codex helper functions isolate rate-limit scopes and parse quota headers",
   assert.equal(getCodexModelScope("gpt-5.5-xhigh"), "codex");
   assert.equal(getCodexUpstreamModel("gpt-5.5-xhigh"), "gpt-5.5");
   assert.equal(getCodexUpstreamModel("gpt-5.5-medium"), "gpt-5.5");
+  assert.equal(getCodexUpstreamModel("gpt-5.6-sol-review"), "gpt-5.6-sol");
+  assert.equal(getCodexUpstreamModel("gpt-5.6-terra-review"), "gpt-5.6-terra");
+  assert.equal(getCodexUpstreamModel("gpt-5.6-luna-review"), "gpt-5.6-luna");
   // With mock WS transport + codexTransport=websocket, gpt-5.5 models require WS
   __setCodexWebSocketTransportForTesting(
     async (): Promise<MockCodexWebSocket> => ({
@@ -336,6 +339,63 @@ test("CodexExecutor.transformRequest normalizes max reasoning_effort to xhigh", 
   );
 
   assert.equal(result.reasoning.effort, "xhigh");
+  assert.equal(result.reasoning_effort, undefined);
+});
+
+test("CodexExecutor.transformRequest preserves max for GPT 5.6 Sol", () => {
+  const executor = new CodexExecutor();
+  const result = executor.transformRequest(
+    "gpt-5.6-sol",
+    {
+      model: "gpt-5.6-sol",
+      input: [],
+      reasoning_effort: "max",
+    },
+    false,
+    {
+      requestEndpointPath: "/responses",
+    }
+  );
+
+  assert.equal(result.reasoning.effort, "max");
+  assert.equal(result.reasoning_effort, undefined);
+});
+
+test("CodexExecutor.transformRequest preserves ultra for GPT 5.6 Sol", () => {
+  const executor = new CodexExecutor();
+  const result = executor.transformRequest(
+    "gpt-5.6-sol",
+    {
+      model: "gpt-5.6-sol",
+      input: [],
+      reasoning_effort: "ultra",
+    },
+    false,
+    {
+      requestEndpointPath: "/responses",
+    }
+  );
+
+  assert.equal(result.reasoning.effort, "ultra");
+  assert.equal(result.reasoning_effort, undefined);
+});
+
+test("CodexExecutor.transformRequest downgrades ultra to max for GPT 5.6 Luna", () => {
+  const executor = new CodexExecutor();
+  const result = executor.transformRequest(
+    "gpt-5.6-luna",
+    {
+      model: "gpt-5.6-luna",
+      input: [],
+      reasoning_effort: "ultra",
+    },
+    false,
+    {
+      requestEndpointPath: "/responses",
+    }
+  );
+
+  assert.equal(result.reasoning.effort, "max");
   assert.equal(result.reasoning_effort, undefined);
 });
 
@@ -679,6 +739,19 @@ test("CodexExecutor.transformRequest keeps gpt-5.5 as the model and applies xhig
 
   assert.equal(result.model, "gpt-5.5");
   assert.equal(result.reasoning.effort, "xhigh");
+});
+
+test("CodexExecutor.transformRequest rewrites GPT 5.6 review variants to their upstream base model", () => {
+  const executor = new CodexExecutor();
+  const result = executor.transformRequest(
+    "gpt-5.6-sol-review",
+    { model: "gpt-5.6-sol-review", input: [] },
+    false,
+    {}
+  );
+
+  assert.equal(result.model, "gpt-5.6-sol");
+  assert.equal(result.reasoning?.effort, "medium");
 });
 
 test("CodexExecutor.transformRequest keeps GPT 5.3 Codex reasoning in Responses shape", () => {

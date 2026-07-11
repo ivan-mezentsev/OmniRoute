@@ -31,15 +31,33 @@ test("T12: pricing table includes MiniMax, GLM, Kimi and gpt-5.4 mini entries", 
   assert.ok(pricing.anthropic["claude-opus-4.8"], "missing anthropic/claude-opus-4.8");
   assert.ok(pricing.anthropic["claude-opus-4-8"], "missing anthropic/claude-opus-4-8");
   assert.ok(pricing.anthropic["claude-opus-4-7"], "missing anthropic/claude-opus-4-7");
+
+  assert.ok(pricing.cx["gpt-5.6-sol"], "missing cx/gpt-5.6-sol");
+  assert.ok(pricing.cx["gpt-5.6-sol-review"], "missing cx/gpt-5.6-sol-review");
+  assert.ok(pricing.cx["gpt-5.6-terra"], "missing cx/gpt-5.6-terra");
+  assert.ok(pricing.cx["gpt-5.6-terra-review"], "missing cx/gpt-5.6-terra-review");
+  assert.ok(pricing.cx["gpt-5.6-luna"], "missing cx/gpt-5.6-luna");
+  assert.ok(pricing.cx["gpt-5.6-luna-review"], "missing cx/gpt-5.6-luna-review");
+  assert.equal(pricing.cx["gpt-5.6-sol"].output, 30.0);
+  assert.equal(pricing.cx["gpt-5.6-terra"].output, 15.0);
+  assert.equal(pricing.cx["gpt-5.6-luna"].output, 6.0);
 });
 
 test("T12: codex catalog includes GPT 5.5 variations", () => {
   const codexModels = new Map(REGISTRY.codex.models.map((m) => [m.id, m]));
   assert.ok(codexModels.has("gpt-5.5-medium"), "missing codex/gpt-5.5-medium");
   assert.ok(codexModels.has("gpt-5.5-xhigh"), "missing codex/gpt-5.5-xhigh");
+  assert.ok(codexModels.has("gpt-5.6-sol"), "missing codex/gpt-5.6-sol");
+  assert.ok(codexModels.has("gpt-5.6-sol-review"), "missing codex/gpt-5.6-sol-review");
+  assert.ok(codexModels.has("gpt-5.6-terra"), "missing codex/gpt-5.6-terra");
+  assert.ok(codexModels.has("gpt-5.6-terra-review"), "missing codex/gpt-5.6-terra-review");
+  assert.ok(codexModels.has("gpt-5.6-luna"), "missing codex/gpt-5.6-luna");
+  assert.ok(codexModels.has("gpt-5.6-luna-review"), "missing codex/gpt-5.6-luna-review");
   assert.equal(codexModels.get("gpt-5.5-medium")?.name, "GPT 5.5 (Medium)");
   assert.equal(codexModels.get("gpt-5.5-medium")?.targetFormat, "openai-responses");
   assert.equal(codexModels.get("gpt-5.5-xhigh")?.targetFormat, "openai-responses");
+  assert.equal(codexModels.get("gpt-5.6-sol")?.targetFormat, "openai-responses");
+  assert.equal(codexModels.get("gpt-5.6-sol-review")?.name, "GPT 5.6 Sol Review");
 });
 
 test("T12: minimax default model list starts with M2.7", () => {

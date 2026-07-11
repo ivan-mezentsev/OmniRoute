@@ -177,6 +177,36 @@ test("sanitizeReasoningEffortForProvider: codex with xhigh passes through unchan
   );
 });
 
+test("sanitizeReasoningEffortForProvider: codex GPT-5.6 Sol preserves max", () => {
+  const body = {
+    model: "gpt-5.6-sol",
+    reasoning_effort: "max",
+    messages: [],
+  };
+  const result = sanitizeReasoningEffortForProvider(body, "codex", "gpt-5.6-sol", null);
+  assert.equal((result as any).reasoning_effort, "max");
+});
+
+test("sanitizeReasoningEffortForProvider: codex GPT-5.6 Sol preserves ultra", () => {
+  const body = {
+    model: "gpt-5.6-sol",
+    reasoning_effort: "ultra",
+    messages: [],
+  };
+  const result = sanitizeReasoningEffortForProvider(body, "codex", "gpt-5.6-sol", null);
+  assert.equal((result as any).reasoning_effort, "ultra");
+});
+
+test("sanitizeReasoningEffortForProvider: codex GPT-5.6 Luna downgrades ultra to max", () => {
+  const body = {
+    model: "gpt-5.6-luna",
+    reasoning_effort: "ultra",
+    messages: [],
+  };
+  const result = sanitizeReasoningEffortForProvider(body, "codex", "gpt-5.6-luna", null);
+  assert.equal((result as any).reasoning_effort, "max");
+});
+
 test("sanitizeReasoningEffortForProvider: no-op when reasoning_effort absent", () => {
   const body = { model: "mimo-v2.5-pro", messages: [] };
   const result = sanitizeReasoningEffortForProvider(body, "xiaomi-mimo", "mimo-v2.5-pro", null);

@@ -600,6 +600,26 @@ test("v1 models catalog exposes bare Codex-preferred IDs for native Codex client
   assert.equal(providerModel.parent, aliasModel.id);
 });
 
+test("v1 models catalog adds an empty Codex models array for Desktop/CLI refresh requests", async () => {
+  await seedConnection("codex", {
+    authType: "oauth",
+    name: "codex-refresh-client",
+    apiKey: null,
+    accessToken: "codex-access",
+  });
+
+  const response = await v1ModelsCatalog.getUnifiedModelsResponse(
+    new Request("http://localhost/api/v1/models?client_version=0.144.0", {
+      headers: { "User-Agent": "Codex Desktop/0.144.0-alpha.4" },
+    })
+  );
+  const body = (await response.json()) as any;
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(body.models, []);
+  assert.ok(body.data.some((item) => item.id === "cx/gpt-5.6-sol"));
+});
+
 test("v1 models catalog exposes Antigravity client-visible preview aliases instead of upstream internal IDs", async () => {
   await seedConnection("antigravity", {
     authType: "oauth",

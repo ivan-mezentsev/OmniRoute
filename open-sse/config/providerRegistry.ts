@@ -192,6 +192,16 @@ const GPT_5_5_CODEX_CAPABILITIES = {
   contextLength: GPT_5_5_CONTEXT_LENGTH,
 } as const;
 
+const GPT_5_6_CODEX_CAPABILITIES = {
+  targetFormat: "openai-responses",
+  toolCalling: true,
+  supportsReasoning: true,
+  supportsVision: true,
+  supportsXHighEffort: true,
+  contextLength: 400000,
+  maxOutputTokens: 128000,
+} as const;
+
 const CHAT_OPENAI_COMPAT_MODELS: Record<string, RegistryModel[]> = {
   deepinfra: buildModels([
     "anthropic/claude-4-opus",
@@ -816,6 +826,24 @@ export const REGISTRY: Record<string, RegistryEntry> = {
         ...GPT_5_5_CODEX_CAPABILITIES,
         contextLength: 400000,
         maxOutputTokens: 128000,
+      },
+      { id: "gpt-5.6-sol", name: "GPT 5.6 Sol", ...GPT_5_6_CODEX_CAPABILITIES },
+      {
+        id: "gpt-5.6-sol-review",
+        name: "GPT 5.6 Sol Review",
+        ...GPT_5_6_CODEX_CAPABILITIES,
+      },
+      { id: "gpt-5.6-terra", name: "GPT 5.6 Terra", ...GPT_5_6_CODEX_CAPABILITIES },
+      {
+        id: "gpt-5.6-terra-review",
+        name: "GPT 5.6 Terra Review",
+        ...GPT_5_6_CODEX_CAPABILITIES,
+      },
+      { id: "gpt-5.6-luna", name: "GPT 5.6 Luna", ...GPT_5_6_CODEX_CAPABILITIES },
+      {
+        id: "gpt-5.6-luna-review",
+        name: "GPT 5.6 Luna Review",
+        ...GPT_5_6_CODEX_CAPABILITIES,
       },
       {
         id: "gpt-5.4",

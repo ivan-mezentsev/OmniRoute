@@ -225,11 +225,31 @@ function hasActiveClaudeThinking(body: Record<string, unknown>): boolean {
  */
 const MISTRAL_NO_REASONING_EFFORT_PATTERN = /devstral/i;
 const GITHUB_NO_REASONING_EFFORT_PATTERN = /(claude|haiku|oswe)/i;
+const CODEX_REASONING_SUFFIX_PATTERN = /-(?:none|low|medium|high|xhigh|max|ultra)$/i;
+const CODEX_MAX_EFFORT_MODEL_PATTERN = /^gpt-5\.6-(?:sol|terra|luna)(?:-review)?$/i;
+const CODEX_ULTRA_EFFORT_MODEL_PATTERN = /^gpt-5\.6-(?:sol|terra)(?:-review)?$/i;
+
+function normalizeCodexReasoningModelId(model: string): string {
+  return model
+    .trim()
+    .toLowerCase()
+    .replace(/^(?:codex|cx)\//, "")
+    .replace(CODEX_REASONING_SUFFIX_PATTERN, "");
+}
+
+function supportsCodexMaxEffort(model: string): boolean {
+  return CODEX_MAX_EFFORT_MODEL_PATTERN.test(normalizeCodexReasoningModelId(model));
+}
+
+function supportsCodexUltraEffort(model: string): boolean {
+  return CODEX_ULTRA_EFFORT_MODEL_PATTERN.test(normalizeCodexReasoningModelId(model));
+}
 
 function supportsMaxEffortForProvider(provider: string, model: string): boolean {
   return (
-    (provider === PROVIDER_CLAUDE || isClaudeCodeCompatible(provider)) &&
-    supportsClaudeMaxEffort(model)
+    ((provider === PROVIDER_CLAUDE || isClaudeCodeCompatible(provider)) &&
+      supportsClaudeMaxEffort(model)) ||
+    (provider === "codex" && supportsCodexMaxEffort(model))
   );
 }
 
@@ -254,18 +274,31 @@ export function sanitizeReasoningEffortForProvider(
   const shouldDowngradeXHigh = effortStr === "xhigh" && !supportsXHighEffort(provider, modelStr);
   const shouldDowngradeMax =
     effortStr === "max" && !supportsMaxEffortForProvider(provider, modelStr);
+  const shouldDowngradeUltra =
+    effortStr === "ultra" && !(provider === "codex" && supportsCodexUltraEffort(modelStr));
 
-  if (shouldDowngradeXHigh || shouldDowngradeMax) {
+  if (shouldDowngradeXHigh || shouldDowngradeMax || shouldDowngradeUltra) {
+    const downgradedEffort = shouldDowngradeUltra
+      ? supportsMaxEffortForProvider(provider, modelStr)
+        ? "max"
+        : supportsXHighEffort(provider, modelStr)
+          ? "xhigh"
+          : "high"
+      : shouldDowngradeMax
+        ? supportsXHighEffort(provider, modelStr)
+          ? "xhigh"
+          : "high"
+        : "high";
     log?.info?.(
       "REASONING_SANITIZE",
-      `${provider}/${modelStr}: downgraded reasoning_effort ${effortStr} → high`
+      `${provider}/${modelStr}: downgraded reasoning_effort ${effortStr} → ${downgradedEffort}`
     );
     const next: Record<string, unknown> = { ...b };
     if (hasTopLevelReasoningEffort) {
-      next.reasoning_effort = "high";
+      next.reasoning_effort = downgradedEffort;
     }
     if (reasoning) {
-      next.reasoning = { ...reasoning, effort: "high" };
+      next.reasoning = { ...reasoning, effort: downgradedEffort };
     }
     return next;
   }
