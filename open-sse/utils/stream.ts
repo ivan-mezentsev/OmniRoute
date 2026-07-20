@@ -1081,7 +1081,7 @@ export function createSSEStream(options: StreamOptions = {}) {
     item.summary = [
       {
         type: "summary_text",
-        text: "Codex is reasoning, but the upstream Responses API exposed this reasoning block only as encrypted state. OmniRoute cannot recover the private reasoning text.",
+        text: "Codex is reasoning, but this reasoning block is encrypted.",
       },
     ];
     return true;
