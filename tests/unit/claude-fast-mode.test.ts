@@ -27,6 +27,10 @@ test("shouldRequestClaudeFastMode returns true for claude-opus-4-8 exact match",
   assert.equal(shouldRequestClaudeFastMode(enabledSettings, "claude-opus-4-8"), true);
 });
 
+test("shouldRequestClaudeFastMode returns true for claude-opus-5 exact match", () => {
+  assert.equal(shouldRequestClaudeFastMode(enabledSettings, "claude-opus-5"), true);
+});
+
 test("shouldRequestClaudeFastMode prefix-matches claude-opus-4-8 with dated suffix", () => {
   assert.equal(shouldRequestClaudeFastMode(enabledSettings, "claude-opus-4-8-20260528"), true);
   assert.equal(shouldRequestClaudeFastMode(enabledSettings, "claude-opus-4-8-20260101"), true);
@@ -49,10 +53,15 @@ test("CLAUDE_FAST_MODE_DEFAULT_MODELS includes claude-opus-4-8", () => {
     CLAUDE_FAST_MODE_DEFAULT_MODELS.includes("claude-opus-4-8"),
     "claude-opus-4-8 must be in CLAUDE_FAST_MODE_DEFAULT_MODELS"
   );
+  assert.ok(
+    CLAUDE_FAST_MODE_DEFAULT_MODELS.includes("claude-opus-5"),
+    "claude-opus-5 must be in CLAUDE_FAST_MODE_DEFAULT_MODELS"
+  );
 });
 
 test("getClaudeFastModeSupportedModels returns default list when none configured", () => {
   const models = getClaudeFastModeSupportedModels({});
+  assert.ok(models.includes("claude-opus-5"));
   assert.ok(models.includes("claude-opus-4-8"));
   assert.ok(models.includes("claude-opus-4-7"));
   assert.ok(models.includes("claude-opus-4-6"));

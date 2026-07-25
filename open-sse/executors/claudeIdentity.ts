@@ -10,11 +10,17 @@
 
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
+import {
+  CLAUDE_CODE_CLIENT_VERSION,
+  CLAUDE_CODE_RUNTIME_VERSION,
+  CLAUDE_CODE_SDK_PACKAGE_VERSION,
+} from "@/shared/constants/claudeCodeClient";
+
 // ---------- Versions ------------------------------------------------------
 
-export const CLAUDE_CODE_VERSION = "2.1.158";
+export const CLAUDE_CODE_VERSION = CLAUDE_CODE_CLIENT_VERSION;
 /** Bundled @anthropic-ai/sdk version for the pinned CLI release. */
-export const CLAUDE_CODE_STAINLESS_VERSION = "0.94.0";
+export const CLAUDE_CODE_STAINLESS_VERSION = CLAUDE_CODE_SDK_PACKAGE_VERSION;
 
 // ---------- Stainless OS / Arch / Runtime --------------------------------
 
@@ -47,7 +53,7 @@ export function stainlessArch(): string {
 }
 
 export function stainlessRuntimeVersion(): string {
-  return process.version;
+  return CLAUDE_CODE_RUNTIME_VERSION;
 }
 
 // ---------- Bounded-map helper -------------------------------------------
@@ -292,9 +298,11 @@ export function parseUpstreamMetadataUserId(
 const HEAVY_AGENT_BETA_MODEL_PREFIXES = ["claude-opus", "claude-sonnet"];
 /**
  * Models that support the context-1m beta tier. Only Opus is eligible;
+ * Opus 5 is excluded because its 1M context window is native.
  * Sonnet trips long-context credit gates under OAuth full-agent traffic.
  */
 const CONTEXT_1M_BETA_MODEL_PREFIXES = ["claude-opus"];
+const CONTEXT_1M_NATIVE_MODEL_PREFIXES = ["claude-opus-5"];
 
 function matchesModelPrefix(model: unknown, prefixes: string[]): boolean {
   if (typeof model !== "string") return false;
@@ -307,7 +315,10 @@ function isHeavyAgentModel(model: unknown): boolean {
 }
 
 function isContext1mModel(model: unknown): boolean {
-  return matchesModelPrefix(model, CONTEXT_1M_BETA_MODEL_PREFIXES);
+  return (
+    matchesModelPrefix(model, CONTEXT_1M_BETA_MODEL_PREFIXES) &&
+    !matchesModelPrefix(model, CONTEXT_1M_NATIVE_MODEL_PREFIXES)
+  );
 }
 
 /**
@@ -360,14 +371,15 @@ export function selectBetaFlags(
   const isFullAgent = hasTools && hasSystem;
   const effectiveModel = model ?? (typeof b.model === "string" ? b.model : "");
   const isHeavyAgent = isFullAgent && isHeavyAgentModel(effectiveModel);
+  const isOpusAgent =
+    isFullAgent && matchesModelPrefix(effectiveModel, CONTEXT_1M_BETA_MODEL_PREFIXES);
   const isContext1m = isFullAgent && isContext1mModel(effectiveModel);
 
   const flags: string[] = [];
   if (isFullAgent) flags.push("claude-code-20250219");
   flags.push("oauth-2025-04-20");
-  if (isContext1m) {
-    flags.push("context-1m-2025-08-07", "mid-conversation-system-2026-04-07");
-  }
+  if (isContext1m) flags.push("context-1m-2025-08-07");
+  if (isOpusAgent) flags.push("mid-conversation-system-2026-04-07");
   // Thinking betas: gated on the client header (#3415). interleaved-thinking forces
   // interleaved-thinking semantics that conflict with a tool_choice-forced turn,
   // producing malformed opus tool_use streams when the client never asked for it.

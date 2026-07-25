@@ -322,7 +322,7 @@ test("buildBillingHeaderValue produces the expected ex-machina format", () => {
   });
   assert.match(
     value,
-    /^x-anthropic-billing-header: cc_version=2\.1\.158\.[0-9a-f]{3}; cc_entrypoint=sdk-cli; cch=[0-9a-f]{5};$/
+    /^x-anthropic-billing-header: cc_version=2\.1\.219\.[0-9a-f]{3}; cc_entrypoint=sdk-cli; cch=[0-9a-f]{5};$/
   );
 });
 

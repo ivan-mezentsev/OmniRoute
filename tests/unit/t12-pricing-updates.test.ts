@@ -28,9 +28,13 @@ test("T12: pricing table includes MiniMax, GLM, Kimi and gpt-5.4 mini entries", 
   assert.ok(pricing.kimi["kimi-k2.5-thinking"], "missing kimi/kimi-k2.5-thinking");
   assert.ok(pricing.kimi["kimi-for-coding"], "missing kimi/kimi-for-coding");
 
+  assert.ok(pricing.cc["claude-opus-5"], "missing cc/claude-opus-5");
+  assert.ok(pricing.gh["claude-opus-5"], "missing gh/claude-opus-5");
+  assert.ok(pricing.anthropic["claude-opus-5"], "missing anthropic/claude-opus-5");
   assert.ok(pricing.anthropic["claude-opus-4.8"], "missing anthropic/claude-opus-4.8");
   assert.ok(pricing.anthropic["claude-opus-4-8"], "missing anthropic/claude-opus-4-8");
   assert.ok(pricing.anthropic["claude-opus-4-7"], "missing anthropic/claude-opus-4-7");
+  assert.equal(pricing.anthropic["claude-opus-5"].output, 25.0);
 
   assert.ok(pricing.cx["gpt-5.6-sol"], "missing cx/gpt-5.6-sol");
   assert.ok(pricing.cx["gpt-5.6-sol-review"], "missing cx/gpt-5.6-sol-review");

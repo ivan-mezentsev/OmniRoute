@@ -69,11 +69,13 @@ test("GitHub Copilot registry reflects the current supported model lineup", () =
   assert.ok(ids.has("gpt-5.3-codex"));
   assert.ok(ids.has("gpt-5.4"));
   assert.ok(ids.has("gpt-5.4-mini"));
+  assert.ok(ids.has("claude-opus-5"));
   assert.ok(ids.has("claude-opus-4.7"));
   assert.ok(ids.has("claude-opus-4.6"));
   assert.ok(ids.has("claude-sonnet-4.6"));
   assert.ok(ids.has("gemini-3-flash-preview"));
   assert.equal(getModelTargetFormat("gh", "gpt-5.3-codex"), "openai-responses");
+  assert.equal(getModelTargetFormat("gh", "claude-opus-5"), "claude");
   assert.equal(getModelTargetFormat("gh", "claude-opus-4.6"), null);
   assert.equal(ids.has("gpt-5.1"), false);
   assert.equal(ids.has("gpt-5.1-codex"), false);
@@ -109,7 +111,9 @@ test("Claude max effort support excludes Haiku family and non-Claude IDs", () =>
 test("Claude xhigh effort support defaults on for new models and opts out legacy models", () => {
   const claudeModels = new Set(getModelsByProviderId("claude").map((model) => model.id));
 
+  assert.ok(claudeModels.has("claude-opus-5"));
   assert.ok(claudeModels.has("claude-opus-4-8"));
+  assert.equal(supportsXHighEffort("claude", "claude-opus-5"), true);
   assert.equal(supportsXHighEffort("claude", "claude-opus-4-8"), true);
   assert.equal(supportsXHighEffort("claude", "claude-opus-4-7"), true);
   assert.equal(supportsXHighEffort("claude", "claude-opus-4-6"), false);

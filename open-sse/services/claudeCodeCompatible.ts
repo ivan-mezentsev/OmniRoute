@@ -1,5 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
 
+import {
+  CLAUDE_CODE_CLIENT_VERSION,
+  CLAUDE_CODE_RUNTIME_VERSION,
+  CLAUDE_CODE_SDK_PACKAGE_VERSION,
+  getClaudeCodeUserAgent,
+} from "@/shared/constants/claudeCodeClient";
 import { getStainlessTimeoutSeconds } from "@/shared/utils/runtimeTimeouts";
 import { ANTHROPIC_VERSION_HEADER } from "../config/anthropicHeaders.ts";
 import { supportsClaudeMaxEffort, supportsXHighEffort } from "../config/providerModels.ts";
@@ -40,10 +46,10 @@ export const CLAUDE_CODE_COMPATIBLE_ANTHROPIC_BETA = [
   "effort-2025-11-24",
   "redact-thinking-2026-02-12",
 ].join(",");
-export const CLAUDE_CODE_COMPATIBLE_VERSION = "2.1.158";
-export const CLAUDE_CODE_COMPATIBLE_USER_AGENT = "claude-cli/2.1.158 (external, sdk-cli)";
-export const CLAUDE_CODE_COMPATIBLE_STAINLESS_PACKAGE_VERSION = "0.94.0";
-export const CLAUDE_CODE_COMPATIBLE_STAINLESS_RUNTIME_VERSION = "v24.3.0";
+export const CLAUDE_CODE_COMPATIBLE_VERSION = CLAUDE_CODE_CLIENT_VERSION;
+export const CLAUDE_CODE_COMPATIBLE_USER_AGENT = getClaudeCodeUserAgent("sdk-cli");
+export const CLAUDE_CODE_COMPATIBLE_STAINLESS_PACKAGE_VERSION = CLAUDE_CODE_SDK_PACKAGE_VERSION;
+export const CLAUDE_CODE_COMPATIBLE_STAINLESS_RUNTIME_VERSION = CLAUDE_CODE_RUNTIME_VERSION;
 export const CONTEXT_1M_BETA_HEADER = "context-1m-2025-08-07";
 const COPILOT_REASONING_SUMMARY_MARKER = "_omnirouteCopilotReasoningSummary";
 const CLAUDE_CODE_COMPATIBLE_DEFAULT_SYSTEM_BLOCKS = [
@@ -52,6 +58,7 @@ const CLAUDE_CODE_COMPATIBLE_DEFAULT_SYSTEM_BLOCKS = [
     text: "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
   },
 ];
+const CONTEXT_1M_NATIVE_MODELS = ["claude-opus-5"];
 const CONTEXT_1M_SUPPORTED_MODELS = [
   "claude-fable-5",
   "claude-opus-4-8",
@@ -154,6 +161,17 @@ export function appendAnthropicBetaHeader(
   if (!existingValues.includes(betaHeader)) {
     headers[existingKey] = [...existingValues, betaHeader].join(",");
   }
+}
+
+export function modelHasNativeContext1m(model: string | null | undefined): boolean {
+  const normalizedModel = String(model || "")
+    .trim()
+    .toLowerCase()
+    .replace(/-\d{8}$/, "");
+
+  return CONTEXT_1M_NATIVE_MODELS.some(
+    (supported) => normalizedModel === supported || normalizedModel.startsWith(`${supported}-`)
+  );
 }
 
 export function modelSupportsContext1mBeta(model: string | null | undefined): boolean {

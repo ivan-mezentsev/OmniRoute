@@ -51,6 +51,14 @@ const CLAUDE_FABLE_5_PRICING = {
   cache_creation: 15.0,
 };
 
+const CLAUDE_OPUS_5_PRICING = {
+  input: 5.0,
+  output: 25.0,
+  cached: 0.5,
+  reasoning: 25.0,
+  cache_creation: 6.25,
+};
+
 const CLAUDE_OPUS_4_PRICING = {
   input: 15.0,
   output: 75.0,
@@ -189,6 +197,7 @@ export const DEFAULT_PRICING = {
       reasoning: 37.5,
       cache_creation: 5.0,
     },
+    "claude-opus-5": CLAUDE_OPUS_5_PRICING,
     "claude-opus-4-8": {
       input: 5.0,
       output: 25.0,
@@ -585,6 +594,7 @@ export const DEFAULT_PRICING = {
 
   // GitHub Copilot (gh)
   gh: {
+    "claude-opus-5": CLAUDE_OPUS_5_PRICING,
     "gpt-5": {
       input: 3.0,
       output: 12.0,
@@ -785,6 +795,7 @@ export const DEFAULT_PRICING = {
     // Intentional duplicates of dot-notation variants (e.g. claude-opus-4.6)
     // to cover hyphen-notation IDs (claude-opus-4-6) used by some clients
     "claude-fable-5": CLAUDE_FABLE_5_PRICING,
+    "claude-opus-5": CLAUDE_OPUS_5_PRICING,
     "claude-opus-4.8": CLAUDE_OPUS_4_PRICING,
     "claude-opus-4-8": CLAUDE_OPUS_4_PRICING,
     "claude-opus-4-7": CLAUDE_OPUS_4_PRICING,

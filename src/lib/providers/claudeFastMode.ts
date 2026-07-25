@@ -3,11 +3,12 @@ type JsonRecord = Record<string, unknown>;
 /**
  * Default models that support Anthropic Fast Mode (speed:"fast").
  *
- * Mirrors the binary-side gate observed in claude-code v2.1.145 (KT() check):
- * only the latest Opus tiers can request the priority service path.
+ * Opus 5 support is public; the older entries mirror the binary-side gate
+ * observed in claude-code v2.1.145 (KT() check).
  */
 export const CLAUDE_FAST_MODE_DEFAULT_MODELS = [
   "claude-fable-5",
+  "claude-opus-5",
   "claude-opus-4-8",
   "claude-opus-4-7",
   "claude-opus-4-6",
@@ -43,8 +44,8 @@ export function isClaudeFastModeEnabled(settings: unknown): boolean {
 }
 
 /**
- * Returns the configured supported-model list, defaulting to the conservative
- * Opus 4-8 / 4-7 / 4-6 set.
+ * Returns the configured supported-model list, defaulting to the supported
+ * flagship and Opus tiers.
  */
 export function getClaudeFastModeSupportedModels(settings: unknown): string[] {
   const record = asRecord(settings);

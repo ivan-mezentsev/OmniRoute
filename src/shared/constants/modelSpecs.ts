@@ -15,6 +15,8 @@ export interface ModelSpec {
   supportsThinking?: boolean;
   supportsTools?: boolean;
   supportsVision?: boolean;
+  adaptiveThinkingOnly?: boolean;
+  maxEffortWhenThinkingDisabled?: "high" | "max";
 }
 
 const BEDROCK_CLAUDE_ALIASES = (...modelIds: string[]) => [
@@ -197,6 +199,20 @@ export const MODEL_SPECS: Record<string, ModelSpec> = {
     supportsTools: true,
     supportsVision: true,
     aliases: [],
+  },
+
+  // ── Claude Opus 5 ──────────────────────────────────────────────
+  "claude-opus-5": {
+    maxOutputTokens: 128000,
+    contextWindow: 1000000,
+    defaultThinkingBudget: 32000,
+    thinkingBudgetCap: 120000,
+    supportsThinking: true,
+    supportsTools: true,
+    supportsVision: true,
+    adaptiveThinkingOnly: true,
+    maxEffortWhenThinkingDisabled: "high",
+    aliases: BEDROCK_CLAUDE_ALIASES("claude-opus-5"),
   },
 
   // ── Claude Opus 4.8 ─────────────────────────────────────────────
@@ -409,6 +425,18 @@ export function capMaxOutputTokens(modelId: string, requested?: number): number 
 
 export function getDefaultThinkingBudget(modelId: string): number {
   return getModelSpec(modelId)?.defaultThinkingBudget ?? 0;
+}
+
+export function isAdaptiveThinkingOnly(modelId: string | null | undefined): boolean {
+  if (typeof modelId !== "string" || modelId.length === 0) return false;
+  return getModelSpec(modelId)?.adaptiveThinkingOnly === true;
+}
+
+export function getMaxEffortWhenThinkingDisabled(
+  modelId: string | null | undefined
+): "high" | "max" | null {
+  if (typeof modelId !== "string" || modelId.length === 0) return null;
+  return getModelSpec(modelId)?.maxEffortWhenThinkingDisabled ?? null;
 }
 
 export function capThinkingBudget(modelId: string, budget: number): number {

@@ -544,6 +544,23 @@ test("DefaultExecutor.execute uses CC-compatible connection defaults to append 1
       },
       extendedContext: false,
     });
+    await cc.execute({
+      model: "claude-opus-5",
+      body: {
+        model: "claude-opus-5",
+        messages: [{ role: "user", content: "hi" }],
+        max_tokens: 1,
+      },
+      stream: false,
+      credentials: {
+        apiKey: "cc-key",
+        providerSpecificData: {
+          ccSessionId: "session-1",
+          requestDefaults: { context1m: true },
+        },
+      },
+      extendedContext: false,
+    });
 
     const anthropicCompat = new DefaultExecutor("anthropic-compatible-test");
     await anthropicCompat.execute({
@@ -568,7 +585,8 @@ test("DefaultExecutor.execute uses CC-compatible connection defaults to append 1
 
   assert.equal(calls[0].headers["anthropic-beta"].includes(CONTEXT_1M_BETA_HEADER), false);
   assert.equal(calls[1].headers["anthropic-beta"].includes(CONTEXT_1M_BETA_HEADER), true);
-  assert.equal(calls[2].headers["anthropic-beta"], undefined);
+  assert.equal(calls[2].headers["anthropic-beta"].includes(CONTEXT_1M_BETA_HEADER), false);
+  assert.equal(calls[3].headers["anthropic-beta"], undefined);
 });
 
 test("DefaultExecutor.execute only injects adaptive thinking defaults for Claude models that support x-high effort", async () => {

@@ -14,6 +14,8 @@ const {
   joinClaudeCodeCompatibleUrl,
   buildClaudeCodeCompatibleHeaders,
   buildClaudeCodeCompatibleValidationPayload,
+  modelHasNativeContext1m,
+  modelSupportsContext1mBeta,
   resolveClaudeCodeCompatibleSessionId,
 } = await import("../../open-sse/services/claudeCodeCompatible.ts");
 
@@ -70,6 +72,13 @@ test("Claude Code compatible beta set matches the stable API-key Claude CLI prof
     CLAUDE_CODE_COMPATIBLE_ANTHROPIC_BETA.includes("prompt-caching-scope-2026-01-05"),
     false
   );
+});
+
+test("context-1m helpers distinguish beta-backed and native 1M Claude models", () => {
+  assert.equal(modelSupportsContext1mBeta("claude-opus-4-8"), true);
+  assert.equal(modelSupportsContext1mBeta("claude-opus-5"), false);
+  assert.equal(modelHasNativeContext1m("claude-opus-5"), true);
+  assert.equal(modelHasNativeContext1m("claude-opus-4-8"), false);
 });
 
 test("resolveClaudeCodeCompatibleSessionId prefers explicit session headers and generates a fallback id", () => {

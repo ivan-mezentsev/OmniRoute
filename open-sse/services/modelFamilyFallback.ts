@@ -19,73 +19,44 @@ import { CONTEXT_OVERFLOW_REGEX } from "./errorClassifier.ts";
 
 /**
  * Ordered candidate lists per model family.
- * First entry is the most preferred; fallback proceeds in order.
+ * Each entry only contains alternate spellings / equivalent aliases of the
+ * SAME model. Cross-model downgrades are intentionally excluded.
  */
 const MODEL_FAMILIES: Record<string, string[]> = {
-  // Gemini 3 / 3.1 Pro family — ordered by preference
-  "gemini-3-pro": [
-    "gemini-3.1-pro-preview",
-    "gemini-3-pro-preview",
-    "gemini-3.1-pro-high",
-    "gemini-3-pro-high",
-    "gemini-3.1-pro-low",
-    "gemini-3-pro-low",
-  ],
-  "gemini-3.1-pro": [
-    "gemini-3.1-pro-preview",
-    "gemini-3-pro-preview",
-    "gemini-3.1-pro-high",
-    "gemini-3-pro-high",
-    "gemini-3.1-pro-low",
-    "gemini-3-pro-low",
-  ],
-  "gemini-3-pro-preview": [
-    "gemini-3.1-pro-preview",
-    "gemini-3-pro-high",
-    "gemini-3.1-pro-high",
-    "gemini-3-pro-low",
-    "gemini-3.1-pro-low",
-  ],
-  "gemini-3.1-pro-preview": [
-    "gemini-3-pro-preview",
-    "gemini-3.1-pro-high",
-    "gemini-3-pro-high",
-    "gemini-3.1-pro-low",
-    "gemini-3-pro-low",
-  ],
-  "gemini-3-pro-high": [
-    "gemini-3.1-pro-high",
-    "gemini-3-pro-preview",
-    "gemini-3.1-pro-preview",
-    "gemini-3-pro-low",
-    "gemini-3.1-pro-low",
-  ],
-  "gemini-3.1-pro-high": [
-    "gemini-3-pro-high",
-    "gemini-3.1-pro-preview",
-    "gemini-3-pro-preview",
-    "gemini-3.1-pro-low",
-    "gemini-3-pro-low",
-  ],
+  // Gemini 3 / 3.1 Pro family — only same-model canonical/preview aliases
+  "gemini-3-pro": ["gemini-3-pro-preview"],
+  "gemini-3.1-pro": ["gemini-3.1-pro-preview"],
+  "gemini-3-pro-preview": ["gemini-3-pro"],
+  "gemini-3.1-pro-preview": ["gemini-3.1-pro"],
+  "gemini-3-pro-high": [],
+  "gemini-3.1-pro-high": [],
+  "gemini-3-pro-low": [],
+  "gemini-3.1-pro-low": [],
 
-  // Gemini 2.5 Pro family
-  "gemini-2.5-pro": ["gemini-2.5-pro-preview-06-05", "gemini-2.5-pro-exp-03-25"],
-  "gemini-2.5-pro-preview-06-05": ["gemini-2.5-pro", "gemini-2.5-pro-exp-03-25"],
+  // Gemini 2.5 Pro family — only same-model canonical/preview aliases
+  "gemini-2.5-pro": ["gemini-2.5-pro-preview-06-05"],
+  "gemini-2.5-pro-preview-06-05": ["gemini-2.5-pro"],
 
-  // Claude Opus family
-  "claude-fable-5": ["claude-opus-4-8", "claude-opus-4-7", "claude-sonnet-4-6"],
-  "claude-opus-4-8": ["claude-opus-4-7", "claude-opus-4-6", "claude-sonnet-4-6"],
-  "claude-opus-4-7": ["claude-opus-4-6", "claude-opus-4-5-20251101", "claude-sonnet-4-6"],
-  "claude-opus-4-6": ["claude-opus-4-6-thinking", "claude-opus-4-5-20251101", "claude-sonnet-4-6"],
-  "claude-opus-4-6-thinking": ["claude-opus-4-6", "claude-opus-4-5-20251101"],
+  // Claude Opus family — only equivalent spellings / aliases
+  "claude-fable-5": [],
+  "claude-opus-5": [],
+  "claude-opus-4-8": ["claude-opus-4.8"],
+  "claude-opus-4.8": ["claude-opus-4-8"],
+  "claude-opus-4-7": ["claude-opus-4.7"],
+  "claude-opus-4.7": ["claude-opus-4-7"],
+  "claude-opus-4-6": ["claude-opus-4.6"],
+  "claude-opus-4.6": ["claude-opus-4-6"],
+  "claude-opus-4-6-thinking": [],
 
-  // Claude Sonnet family
-  "claude-sonnet-4-6": ["claude-sonnet-4-5-20250929", "claude-sonnet-4-20250514"],
-  "claude-sonnet-4-5-20250929": ["claude-sonnet-4-6", "claude-sonnet-4-20250514"],
+  // Claude Sonnet family — only equivalent spellings / aliases
+  "claude-sonnet-4-6": ["claude-sonnet-4.6"],
+  "claude-sonnet-4.6": ["claude-sonnet-4-6"],
+  "claude-sonnet-4-5-20250929": ["claude-sonnet-4.5"],
+  "claude-sonnet-4.5": ["claude-sonnet-4-5-20250929"],
 
-  // GPT-5 family
-  "gpt-5": ["gpt-5-mini", "gpt-4o"],
-  "gpt-5.1": ["gpt-5.1-mini", "gpt-5", "gpt-4o"],
+  // GPT-5 family — no equivalent alternate names in the local catalog
+  "gpt-5": [],
+  "gpt-5.1": [],
 };
 
 // ── Error Detection ──────────────────────────────────────────────────────────

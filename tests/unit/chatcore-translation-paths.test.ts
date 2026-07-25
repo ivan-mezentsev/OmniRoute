@@ -558,7 +558,7 @@ test("chatCore helper detects Claude Code semantic passthrough only for direct C
       provider: "claude",
       sourceFormat: FORMATS.CLAUDE,
       targetFormat: FORMATS.CLAUDE,
-      userAgent: "claude-cli/2.1.137",
+      userAgent: "claude-cli/2.1.219",
     }),
     true
   );
@@ -577,7 +577,7 @@ test("chatCore helper detects Claude Code semantic passthrough only for direct C
       provider: "anthropic-compatible-test",
       sourceFormat: FORMATS.CLAUDE,
       targetFormat: FORMATS.CLAUDE,
-      userAgent: "claude-cli/2.1.137",
+      userAgent: "claude-cli/2.1.219",
     }),
     false
   );
@@ -711,7 +711,7 @@ test("chatCore normalizes native Claude Code messages for native Claude OAuth pa
       messages: clientMessages,
       tools: [{ name: "Bash", input_schema: { type: "object", properties: {} } }],
     },
-    userAgent: "claude-cli/2.1.137",
+    userAgent: "claude-cli/2.1.219",
     requestHeaders: { "x-app": "cli", "x-claude-code-session-id": "session-123" },
     responseFormat: "claude",
   });
@@ -830,7 +830,7 @@ test("chatCore normalizes native Claude Code messages before CC-compatible relay
       messages: clientMessages,
       tools: [{ name: "Read", input_schema: { type: "object", properties: {} } }],
     },
-    userAgent: "Claude-Code/2.1.137",
+    userAgent: "Claude-Code/2.1.219",
     requestHeaders: { "x-app": "cli", "x-claude-code-session-id": "cc-session-123" },
     responseFormat: "claude",
   });
@@ -1994,68 +1994,6 @@ test("chatCore 429 lets account fallback apply the configured resilience cooldow
   assert.ok(cooldownRemaining > 0 && cooldownRemaining <= 2_000);
 });
 
-test("chatCore falls back to the next family model when the requested model is unavailable", async () => {
-  const { calls, result } = await invokeChatCore({
-    provider: "openai",
-    model: "gpt-5.1",
-    body: {
-      model: "gpt-5.1",
-      stream: false,
-      messages: [{ role: "user", content: "fallback on model unavailable" }],
-    },
-    responseFactory(_captured, seenCalls) {
-      if (seenCalls.length === 1) {
-        return new Response(JSON.stringify({ error: { message: "model not found" } }), {
-          status: 404,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-      return buildOpenAIResponse(false, "family fallback ok");
-    },
-  });
-
-  const payload = (await result.response.json()) as any;
-  assert.equal(result.success, true);
-  assert.equal(calls.length, 2);
-  assert.equal(calls[1].body.model, "gpt-5.1-mini");
-  assert.equal(payload.choices[0].message.content, "family fallback ok");
-});
-
-test("chatCore falls back to a larger-context sibling when the request overflows context", async () => {
-  saveModelsDevCapabilities({
-    unknown: {
-      "gpt-5": capabilityEntry(128_000),
-      "gpt-5-mini": capabilityEntry(64_000),
-      "gpt-4o": capabilityEntry(256_000),
-    },
-  });
-
-  const { calls, result } = await invokeChatCore({
-    provider: "openai",
-    model: "gpt-5",
-    body: {
-      model: "gpt-5",
-      stream: false,
-      messages: [{ role: "user", content: "recover from context overflow" }],
-    },
-    responseFactory(_captured, seenCalls) {
-      if (seenCalls.length === 1) {
-        return new Response(JSON.stringify({ error: { message: "maximum context exceeded" } }), {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-      return buildOpenAIResponse(false, "larger context fallback");
-    },
-  });
-
-  const payload = (await result.response.json()) as any;
-  assert.equal(result.success, true);
-  assert.equal(calls.length, 2);
-  assert.equal(calls[1].body.model, "gpt-4o");
-  assert.equal(payload.choices[0].message.content, "larger context fallback");
-});
-
 test("chatCore parses upstream SSE payloads for non-streaming requests", async () => {
   const { result } = await invokeChatCore({
     provider: "openai",
@@ -2117,92 +2055,6 @@ test("chatCore rejects malformed non-streaming JSON payloads", async () => {
   assert.equal(result.success, false);
   assert.equal(result.status, 502);
   assert.equal(result.error, "Invalid JSON response from provider");
-});
-
-test("chatCore falls back after an empty-content success response", async () => {
-  const { calls, result } = await invokeChatCore({
-    provider: "openai",
-    model: "gpt-5.1",
-    body: {
-      model: "gpt-5.1",
-      stream: false,
-      messages: [{ role: "user", content: "recover from empty content" }],
-    },
-    responseFactory(_captured, seenCalls) {
-      if (seenCalls.length === 1) {
-        return new Response(
-          JSON.stringify({
-            id: "chatcmpl-empty",
-            object: "chat.completion",
-            model: "gpt-5.1",
-            choices: [
-              {
-                index: 0,
-                message: { role: "assistant", content: "" },
-                finish_reason: "stop",
-              },
-            ],
-          }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-      return buildOpenAIResponse(false, "empty-content fallback ok");
-    },
-  });
-
-  const payload = (await result.response.json()) as any;
-  assert.equal(result.success, true);
-  assert.equal(calls.length, 2);
-  assert.equal(calls[1].body.model, "gpt-5.1-mini");
-  assert.equal(payload.choices[0].message.content, "empty-content fallback ok");
-});
-
-test("chatCore returns a gateway error when the empty-content fallback responds with invalid JSON", async () => {
-  const { result, calls } = await invokeChatCore({
-    provider: "openai",
-    model: "gpt-5.1",
-    body: {
-      model: "gpt-5.1",
-      stream: false,
-      messages: [{ role: "user", content: "recover from empty content" }],
-    },
-    responseFactory(_captured, seenCalls) {
-      if (seenCalls.length === 1) {
-        return new Response(
-          JSON.stringify({
-            id: "chatcmpl-empty",
-            object: "chat.completion",
-            model: "gpt-5.1",
-            choices: [
-              {
-                index: 0,
-                message: { role: "assistant", content: "" },
-                finish_reason: "stop",
-              },
-            ],
-          }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-
-      return new Response("{invalid-json", {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    },
-  });
-
-  assert.equal(result.success, false);
-  assert.equal(result.status, 502);
-  assert.equal(result.error, "Provider returned empty content");
-  assert.equal(calls.length, 2);
-  assert.equal(calls[1].body.model, "gpt-5.1-mini");
 });
 
 test("chatCore records Claude prompt cache and cache usage metadata in call logs", async () => {
