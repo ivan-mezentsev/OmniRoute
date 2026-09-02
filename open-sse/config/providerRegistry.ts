@@ -646,6 +646,16 @@ export const REGISTRY: Record<string, RegistryEntry> = {
     },
     models: [
       {
+        id: "claude-fable-5-1",
+        name: "Claude Fable 5.1",
+        supportsReasoning: true,
+        supportsVision: true,
+        supportsXHighEffort: true,
+        contextLength: 1000000,
+        maxOutputTokens: 128000,
+        unsupportedParams: ["temperature", "top_p", "top_k"],
+      },
+      {
         id: "claude-fable-5",
         name: "Claude Fable 5",
         contextLength: 1000000,

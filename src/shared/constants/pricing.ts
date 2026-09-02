@@ -43,6 +43,14 @@ const GPT_5_6_LUNA_PRICING = {
   cache_creation: 1.0,
 };
 
+const CLAUDE_FABLE_5_1_PRICING = {
+  input: 10.0,
+  output: 50.0,
+  cached: 0.25,
+  reasoning: 50.0,
+  cache_creation: 12.5,
+};
+
 const CLAUDE_FABLE_5_PRICING = {
   input: 15.0,
   output: 75.0,
@@ -190,6 +198,7 @@ export const DEFAULT_PRICING = {
 
   // Claude Code (cc)
   cc: {
+    "claude-fable-5-1": CLAUDE_FABLE_5_1_PRICING,
     "claude-fable-5": {
       input: 5.0,
       output: 25.0,
@@ -794,6 +803,7 @@ export const DEFAULT_PRICING = {
     // Common model IDs (without dates) used across providers
     // Intentional duplicates of dot-notation variants (e.g. claude-opus-4.6)
     // to cover hyphen-notation IDs (claude-opus-4-6) used by some clients
+    "claude-fable-5-1": CLAUDE_FABLE_5_1_PRICING,
     "claude-fable-5": CLAUDE_FABLE_5_PRICING,
     "claude-opus-5": CLAUDE_OPUS_5_PRICING,
     "claude-opus-4.8": CLAUDE_OPUS_4_PRICING,

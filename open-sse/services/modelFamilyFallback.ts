@@ -38,6 +38,7 @@ const MODEL_FAMILIES: Record<string, string[]> = {
   "gemini-2.5-pro-preview-06-05": ["gemini-2.5-pro"],
 
   // Claude Opus family — only equivalent spellings / aliases
+  "claude-fable-5-1": [],
   "claude-fable-5": [],
   "claude-opus-5": [],
   "claude-opus-4-8": ["claude-opus-4.8"],

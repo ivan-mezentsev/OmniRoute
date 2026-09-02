@@ -189,6 +189,19 @@ export const MODEL_SPECS: Record<string, ModelSpec> = {
     aliases: BEDROCK_CLAUDE_ALIASES("claude-opus-4-7", "claude-opus-4.7"),
   },
 
+  // ── Claude Fable 5.1 ────────────────────────────────────────────
+  "claude-fable-5-1": {
+    maxOutputTokens: 128000,
+    contextWindow: 1000000,
+    defaultThinkingBudget: 32000,
+    thinkingBudgetCap: 120000,
+    supportsThinking: true,
+    supportsTools: true,
+    supportsVision: true,
+    adaptiveThinkingOnly: true,
+    aliases: BEDROCK_CLAUDE_ALIASES("claude-fable-5-1"),
+  },
+
   // ── Claude Fable 5 ──────────────────────────────────────────────
   "claude-fable-5": {
     maxOutputTokens: 128000,
