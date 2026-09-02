@@ -50,6 +50,7 @@ const MODEL_FAMILIES: Record<string, string[]> = {
   "claude-opus-4-6-thinking": [],
 
   // Claude Sonnet family — only equivalent spellings / aliases
+  "claude-sonnet-5": [],
   "claude-sonnet-4-6": ["claude-sonnet-4.6"],
   "claude-sonnet-4.6": ["claude-sonnet-4-6"],
   "claude-sonnet-4-5-20250929": ["claude-sonnet-4.5"],

@@ -61,6 +61,7 @@ const CLAUDE_CODE_COMPATIBLE_DEFAULT_SYSTEM_BLOCKS = [
 const CONTEXT_1M_NATIVE_MODELS = ["claude-fable-5-1", "claude-opus-5"];
 const CONTEXT_1M_SUPPORTED_MODELS = [
   "claude-fable-5",
+  "claude-sonnet-5",
   "claude-opus-4-8",
   "claude-opus-4-7",
   "claude-opus-4-6",

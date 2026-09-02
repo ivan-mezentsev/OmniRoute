@@ -99,6 +99,14 @@ const CLAUDE_SONNET_46_PRICING = {
   cache_creation: 3.0,
 };
 
+const CLAUDE_SONNET_5_PRICING = {
+  input: 3.0,
+  output: 15.0,
+  cached: 1.5,
+  reasoning: 22.5,
+  cache_creation: 3.0,
+};
+
 const GLM_PRICING = {
   "glm-5.2": {
     input: 1.2,
@@ -234,6 +242,13 @@ export const DEFAULT_PRICING = {
       cached: 1.5,
       reasoning: 15.0,
       cache_creation: 3.0,
+    },
+    "claude-sonnet-5": {
+      input: 3.0,
+      output: 15.0,
+      cached: 0.3,
+      reasoning: 15.0,
+      cache_creation: 3.75,
     },
     "claude-opus-4-5-20251101": {
       input: 15.0,
@@ -810,6 +825,7 @@ export const DEFAULT_PRICING = {
     "claude-opus-4-8": CLAUDE_OPUS_4_PRICING,
     "claude-opus-4-7": CLAUDE_OPUS_4_PRICING,
     "claude-opus-4-6": CLAUDE_OPUS_46_PRICING,
+    "claude-sonnet-5": CLAUDE_SONNET_5_PRICING,
     "claude-sonnet-4-6": CLAUDE_SONNET_46_PRICING,
     "claude-opus-4-5-20251101": CLAUDE_OPUS_4_PRICING,
     "claude-sonnet-4-5-20250929": CLAUDE_SONNET_4_PRICING,

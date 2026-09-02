@@ -696,6 +696,16 @@ export const REGISTRY: Record<string, RegistryEntry> = {
         maxOutputTokens: 64000,
       },
       {
+        id: "claude-sonnet-5",
+        name: "Claude Sonnet 5",
+        supportsReasoning: true,
+        supportsVision: true,
+        supportsXHighEffort: true,
+        contextLength: 1000000,
+        maxOutputTokens: 128000,
+        unsupportedParams: ["temperature", "top_p", "top_k"],
+      },
+      {
         id: "claude-sonnet-4-6",
         name: "Claude 4.6 Sonnet",
         supportsXHighEffort: false,
